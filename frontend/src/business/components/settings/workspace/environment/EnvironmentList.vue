@@ -3,7 +3,7 @@
     <el-card class="table-card" v-loading="result.loading">
       <!-- 表头 -->
       <template v-slot:header>
-        <ms-table-header :create-permission="['WORKSPACE_PROJECT_ENVIRONMENT:READ+CREATE']" :title="$t('api_test.environment.environment_list')" :create-tip="btnTips"
+        <ms-table-header :create-permission="['WORKSPACE_PROJECT_ENVIRONMENT:READ+CREATE']" :create-tip="btnTips"
                          :condition.sync="condition" @search="search" @create="createEnv">
           <template v-slot:button>
             <ms-table-button v-permission="['WORKSPACE_PROJECT_ENVIRONMENT:READ+IMPORT']" icon="el-icon-box"
@@ -149,7 +149,7 @@
         total: 0,
         projectIds: [],   //当前工作空间所拥有的所有项目id
         projectFilters: [],
-        screenHeight: 'calc(100vh - 195px)',
+        screenHeight: 'calc(100vh - 210px)',
       }
     },
     created() {

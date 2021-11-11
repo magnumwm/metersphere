@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.metersphere.base.mapper.ext.ExtEnvironmentGroupMapper">
+
+    <select id="getList" resultType="io.metersphere.base.domain.EnvironmentGroup">
+        select * from environment_group
+        <where>
+            <if test="request.name != null and request.name!=''">
+                environment_group.name like CONCAT('%', #{request.name},'%')
+            </if>
+        </where>
+    </select>
+
+</mapper>

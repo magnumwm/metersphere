@@ -11,6 +11,8 @@ public class EnvironmentGroup implements Serializable {
 
     private String workspaceId;
 
+    private String description;
+
     private String createUser;
 
     private Long createTime;
