@@ -169,11 +169,7 @@ export default {
         this.envGroupProject = response.data;
         // 初始化环境数据
         this.envGroupProject.forEach(env => {
-          let {projectId} = env;
-          this.$get('/api/environment/list/' + projectId, res => {
-            this.$set(env, 'environments', res.data);
-            this._parseDomainName(env);
-          });
+          this._parseDomainName(env);
         })
       })
     },

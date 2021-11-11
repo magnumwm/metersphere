@@ -3,7 +3,7 @@
 <mapper namespace="io.metersphere.base.mapper.ext.ExtEnvGroupProjectMapper">
 
 
-    <select id="getList" resultType="io.metersphere.base.domain.EnvironmentGroupProject">
+    <select id="getList" resultType="io.metersphere.dto.EnvironmentGroupProjectDTO">
         select * from environment_group_project where environment_group_id = #{groupId}
     </select>
 </mapper>

@@ -1,7 +1,7 @@
 package io.metersphere.controller;
 
 
-import io.metersphere.base.domain.EnvironmentGroupProject;
+import io.metersphere.dto.EnvironmentGroupProjectDTO;
 import io.metersphere.service.EnvironmentGroupProjectService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +22,7 @@ public class EnvGroupProjectController {
     private EnvironmentGroupProjectService environmentGroupProjectService;
 
     @GetMapping("/list/{groupId}")
-    public List<EnvironmentGroupProject> getList(@PathVariable String groupId) {
+    public List<EnvironmentGroupProjectDTO> getList(@PathVariable String groupId) {
         return environmentGroupProjectService.getList(groupId);
     }
 }
