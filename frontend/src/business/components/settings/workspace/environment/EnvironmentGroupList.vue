@@ -8,10 +8,14 @@
       </template>
       <el-table :data="environmentGroupList"
                 style="width: 100%" ref="table"
+                row-key="id"
+                @expand-change="expandChange"
                 :height="screenHeight">
-        <el-table-column type="expand">
+        <el-table-column type="expand" prop="id">
           <template v-slot:default="scope">
-            <environment-group-row :env-group-id="scope.row.id" ref="environmentGroupRow"/>
+            <environment-group-row :env-group-id="scope.row.id" ref="environmentGroupRow"
+                                   :read-only="!scope.row.readOnly"
+                                   style="overflow-x:hidden; overflow-y: auto; height: 180px;"/>
           </template>
         </el-table-column>
         <el-table-column :label="$t('commons.name')" width="300" prop="name" show-overflow-tooltip/>
@@ -36,6 +40,10 @@
       <ms-table-pagination :change="init" :current-page.sync="currentPage" :page-size.sync="pageSize"
                            :total="total"/>
     </el-card>
+
+    <edit-environment-group ref="editEnvironmentGroup" @refresh="init"/>
+    <ms-delete-confirm :title="'删除环境组'" @delete="_handleDelete" ref="deleteConfirm"/>
+
   </div>
 </template>
 
@@ -53,10 +61,13 @@ import ProjectSwitch from "@/business/components/common/head/ProjectSwitch";
 import SearchList from "@/business/components/common/head/SearchList";
 import EnvironmentImport from "@/business/components/project/menu/EnvironmentImport";
 import EnvironmentGroupRow from "@/business/components/settings/workspace/environment/EnvironmentGroupRow";
+import EditEnvironmentGroup from "@/business/components/settings/workspace/environment/EditEnvironmentGroup";
+import MsDeleteConfirm from "@/business/components/common/components/MsDeleteConfirm";
 
 export default {
   name: "EnvironmentGroup",
   components: {
+    EditEnvironmentGroup,
     EnvironmentImport,
     SearchList,
     ProjectSwitch,
@@ -69,7 +80,8 @@ export default {
     MsTableOperator,
     MsTableButton,
     MsTableHeader,
-    EnvironmentGroupRow
+    EnvironmentGroupRow,
+    MsDeleteConfirm
   },
   data() {
     return {
@@ -100,20 +112,36 @@ export default {
       })
     },
     createEnvironment() {
-
+      this.$refs.editEnvironmentGroup.open();
     },
-    editEnvironment() {
-
+    editEnvironment(row) {
+      this.$refs.table.toggleRowExpansion(row, true);
+      this.$set(row, "readOnly", true);
     },
-    deleteEnvironment() {
-
+    deleteEnvironment(row) {
+      if (row.system) {
+        this.$warning(this.$t('group.admin_not_allow_delete'));
+        return;
+      }
+      this.$refs.deleteConfirm.open(row);
     },
     copyEnvironment() {
 
     },
     search() {
 
-    }
+    },
+    _handleDelete(row) {
+      this.$get('/environment/group/delete/' + row.id, () => {
+        this.$success(this.$t('commons.delete_success'));
+        this.init();
+      })
+    },
+    expandChange(row, expanded) {
+      if (expanded) {
+        this.$set(row, "readOnly", false);
+      }
+    },
   },
 }
 </script>
