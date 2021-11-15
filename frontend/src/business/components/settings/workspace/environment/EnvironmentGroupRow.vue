@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="btn-div">
-      <el-button size="mini" type="primary" class="save-btn" v-if="!rowReadOnly" @click="update">保存</el-button>
+      <el-button size="mini" type="primary" class="save-btn" v-if="!rowReadOnly && !showSaveBtn" @click="update">保存</el-button>
     </div>
     <div v-loading="result.loading" class="group-row">
       <el-form class="row-form">
@@ -120,6 +120,12 @@ export default {
       type: String,
       default() {
         return "mini";
+      }
+    },
+    showSaveBtn: {
+      type: Boolean,
+      default() {
+        return false;
       }
     }
   },

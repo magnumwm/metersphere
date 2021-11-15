@@ -9,4 +9,6 @@ import java.util.List;
 public interface ExtEnvironmentGroupMapper {
 
     List<EnvironmentGroup> getList(@Param("request") EnvironmentGroupRequest request);
+
+    List<EnvironmentGroup> getRelateProject(@Param("wsId") String workspaceId, @Param("pId") String projectId);
 }

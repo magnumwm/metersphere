@@ -11,4 +11,12 @@
         </where>
     </select>
 
+    <select id="getRelateProject" resultType="io.metersphere.base.domain.EnvironmentGroup">
+        select distinct eg.*
+        from environment_group eg
+                 join environment_group_project egp on eg.id = egp.environment_group_id
+        where eg.workspace_id = #{wsId}
+          and egp.project_id = #{pId}
+    </select>
+
 </mapper>

@@ -59,6 +59,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.collections4.comparators.FixedOrderComparator;
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
@@ -478,6 +479,14 @@ public class ApiAutomationService {
         scenario.setCreateUser(SessionUtils.getUserId());
 
         scenario.setScenarioDefinition(JSON.toJSONString(request.getScenarioDefinition()));
+        Boolean isValidEnum = EnumUtils.isValidEnum(EnvironmentType.class, request.getEnvironmentType());
+        if (BooleanUtils.isTrue(isValidEnum)) {
+            scenario.setEnvironmentType(request.getEnvironmentType());
+        } else {
+            scenario.setEnvironmentType(EnvironmentType.LIST.toString());
+        }
+        scenario.setEnvironmentJson(request.getEnvironmentJson());
+        scenario.setEnvironmentGroupId(request.getEnvironmentGroupId());
         if (StringUtils.isNotEmpty(request.getStatus())) {
             scenario.setStatus(request.getStatus());
         } else {

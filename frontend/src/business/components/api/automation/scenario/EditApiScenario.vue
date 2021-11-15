@@ -147,9 +147,11 @@
                 <el-col :span="8">
                   <div style="float: right;width: 300px">
                     <env-popover :disabled="scenarioDefinition.length < 1" :env-map="projectEnvMap"
-                                 :project-ids="projectIds" @setProjectEnvMap="setProjectEnvMap" :result="envResult"
+                                 :project-ids="projectIds" @setProjectEnvMap="setProjectEnvMap"
+                                 :result="envResult" @setEnvGroup="setEnvGroup"
                                  :show-config-button-with-out-permission="showConfigButtonWithOutPermission"
                                  :isReadOnly="scenarioDefinition.length < 1" @showPopover="showPopover"
+                                 :group-id="envGroupId"
                                  :project-list="projectList" ref="envPopover" class="ms-message-right"/>
                     <el-tooltip v-if="!debugLoading" content="Ctrl + R" placement="top">
                       <el-dropdown split-button type="primary" @click="runDebug" class="ms-message-right" size="mini" @command="handleCommand" v-permission="['PROJECT_API_SCENARIO:READ+EDIT', 'PROJECT_API_SCENARIO:READ+CREATE']">
@@ -465,7 +467,8 @@ export default {
       plugins: [],
       clearMessage: "",
       runScenario: undefined,
-      showFollow:false
+      showFollow:false,
+      envGroupId: ""
     }
   },
   watch: {
@@ -1466,6 +1469,9 @@ export default {
       if (scenario.hashTree) {
         this.formatData(scenario.hashTree);
       }
+      this.currentScenario.environmentType = this.$refs.envPopover.radio;
+      this.currentScenario.environmentJson = JSON.stringify(strMapToObj(this.projectEnvMap));
+      this.currentScenario.environmentGroupId = this.envGroupId;
       this.currentScenario.scenarioDefinition = scenario;
       if (this.currentScenario.tags instanceof Array) {
         this.currentScenario.tags = JSON.stringify(this.currentScenario.tags);
@@ -1522,6 +1528,9 @@ export default {
     setProjectEnvMap(projectEnvMap) {
       this.projectEnvMap = projectEnvMap;
       this.setDomain(true);
+    },
+    setEnvGroup(id) {
+      this.envGroupId = id;
     },
     getWsProjects() {
       this.$get("/project/listAll", res => {

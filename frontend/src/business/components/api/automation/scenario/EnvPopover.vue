@@ -6,9 +6,16 @@
     :disabled="isReadOnly"
     @show="showPopover"
     trigger="click">
+    <el-radio-group v-model="radio" style="margin-left: 20px;" @change="radioChange">
+      <el-radio :label="ENV_TYPE.LIST">环境列表</el-radio>
+      <el-radio :label="ENV_TYPE.GROUP">环境组</el-radio>
+    </el-radio-group>
     <env-select :project-ids="projectIds" :env-map="envMap" @close="visible = false" :result="result"
-                :show-config-button-with-out-permission="showConfigButtonWithOutPermission"
+                :show-config-button-with-out-permission="showConfigButtonWithOutPermission" v-show="!radio || radio === ENV_TYPE.LIST"
                 ref="envSelect" @setProjectEnvMap="setProjectEnvMap" :project-list="projectList"/>
+    <!-- todo 如果工作空间下的环境组都不包含当前项目则不显示 -->
+    <env-group ref="envGroup" v-show="radio === ENV_TYPE.GROUP" @close="visible = false"
+               @setEnvGroup="setEnvGroup" :group-id="groupId"></env-group>
     <el-button type="primary" slot="reference" size="mini" style="margin-top: 2px;">
       {{ $t('api_test.definition.request.run_env') }}
       <i class="el-icon-caret-bottom el-icon--right"></i>
@@ -18,10 +25,12 @@
 
 <script>
 import EnvSelect from "@/business/components/api/automation/scenario/EnvSelect";
+import {ENV_TYPE} from "@/common/js/constants";
+import EnvGroup from "@/business/components/api/automation/scenario/EnvGroup";
 
 export default {
   name: "EnvPopover",
-  components: {EnvSelect},
+  components: {EnvGroup, EnvSelect},
   props: {
     envMap: Map,
     projectIds: Set,
@@ -43,11 +52,23 @@ export default {
       default() {
         return {loading: false}
       }
+    },
+    groupId: {
+      type: String,
+      default() {
+        return "";
+      }
     }
   },
   data() {
     return {
-      visible: false
+      visible: false,
+      radio: ENV_TYPE.LIST,
+    }
+  },
+  computed: {
+    ENV_TYPE() {
+      return ENV_TYPE;
     }
   },
   methods: {
@@ -60,11 +81,19 @@ export default {
     setProjectEnvMap(map) {
       this.$emit("setProjectEnvMap", map);
     },
+    setEnvGroup(envGroupId) {
+      this.$emit("setEnvGroup", envGroupId);
+    },
     initEnv() {
       return this.$refs.envSelect.initEnv();
     },
     checkEnv(data) {
       return this.$refs.envSelect.checkEnv(data);
+    },
+    radioChange(val) {
+      if (val === ENV_TYPE.GROUP) {
+        this.$refs.envGroup.init();
+      }
     }
   }
 

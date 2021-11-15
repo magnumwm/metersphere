@@ -43,4 +43,9 @@ public class EnvironmentGroupController {
     public EnvironmentGroup update(@RequestBody EnvironmentGroupRequest request) {
         return environmentGroupService.update(request);
     }
+
+    @GetMapping("/get/{id}")
+    public List<EnvironmentGroup> getRelateProject(@PathVariable("id") String projectId) {
+        return environmentGroupService.getRelateProjectGroup(projectId);
+    }
 }

@@ -10,7 +10,7 @@
           <el-input v-model="form.description" autocomplete="off" type="textarea" show-word-limit maxlength="200"></el-input>
         </el-form-item>
         <el-form-item>
-          <environment-group-row ref="environmentGroupRow" :env-group-id="environmentId" :read-only="false"/>
+          <environment-group-row ref="environmentGroupRow" :env-group-id="environmentId" :read-only="false" :show-save-btn="true"/>
         </el-form-item>
       </el-form>
       <template v-slot:footer>
@@ -37,7 +37,7 @@ export default {
   },
   data() {
     return {
-      title: '创建用户组',
+      title: '创建环境组',
       form: {},
       createVisible: false,
       rules: {},

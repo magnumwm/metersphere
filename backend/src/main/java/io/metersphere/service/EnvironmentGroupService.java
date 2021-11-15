@@ -125,4 +125,8 @@ public class EnvironmentGroupService {
             MSException.throwException("环境组已存在！");
         }
     }
+
+    public List<EnvironmentGroup> getRelateProjectGroup(String projectId) {
+        return extEnvironmentGroupMapper.getRelateProject(SessionUtils.getCurrentWorkspaceId(), projectId);
+    }
 }
