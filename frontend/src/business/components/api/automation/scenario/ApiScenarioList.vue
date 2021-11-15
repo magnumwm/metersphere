@@ -270,6 +270,7 @@
     <batch-move @refresh="search" @moveSave="moveSave" ref="testBatchMove"/>
     <ms-run-mode @handleRunBatch="handleRunBatch" ref="runMode"/>
     <ms-run :debug="true" :environment="projectEnvMap" @runRefresh="runRefresh" :reportId="reportId" :saved="true"
+            :environment-type="environmentType" :environment-group-id="envGroupId"
             :run-data="debugData" ref="runTest"/>
     <ms-task-center ref="taskCenter" :show-menu="false"/>
     <relationship-graph-drawer :graph-data="graphData" ref="relationshipGraph"/>
@@ -530,7 +531,9 @@ export default {
         projectEnv: [],
         projectId: ''
       },
-      graphData: {}
+      graphData: {},
+      environmentType: "",
+      envGroupId: ""
     };
   },
   created() {
@@ -1003,6 +1006,8 @@ export default {
           if (scenarioStep.environmentMap) {
             this.projectEnvMap = new Map(Object.entries(scenarioStep.environmentMap));
           }
+          this.environmentType = this.currentScenario.environmentType;
+          this.envGroupId = this.currentScenario.environmentGroupId;
           this.reportId = getUUID().substring(0, 8);
           this.runVisible = true;
           this.$set(row, "isStop", true);

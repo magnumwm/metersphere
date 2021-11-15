@@ -2,6 +2,7 @@
   <div>
     <div style="margin-left: 20px;">
       <el-select v-model="envGroupId" placeholder="请选择用户组" style="margin-top: 8px;width: 200px;" size="small">
+        <!--  todo  如果缺少对应的项目进行提示 -->
         <el-option v-for="(group, index) in groups" :key="index"
                    :label="group.name"
                    :value="group.id"/>
@@ -31,6 +32,14 @@ export default {
         return "";
       }
     }
+  },
+  watch: {
+    groupId(val) {
+      this.envGroupId = val;
+    }
+  },
+  created() {
+    this.init();
   },
   methods: {
     init() {

@@ -148,7 +148,7 @@
                   <div style="float: right;width: 300px">
                     <env-popover :disabled="scenarioDefinition.length < 1" :env-map="projectEnvMap"
                                  :project-ids="projectIds" @setProjectEnvMap="setProjectEnvMap"
-                                 :result="envResult" @setEnvGroup="setEnvGroup"
+                                 :result="envResult" @setEnvGroup="setEnvGroup" :environment-type.sync="environmentType"
                                  :show-config-button-with-out-permission="showConfigButtonWithOutPermission"
                                  :isReadOnly="scenarioDefinition.length < 1" @showPopover="showPopover"
                                  :group-id="envGroupId"
@@ -267,7 +267,7 @@
 
       <!--执行组件-->
       <ms-run :debug="true" v-if="type!=='detail'" :environment="projectEnvMap" :reportId="reportId" :saved="!debug"
-              :run-data="debugData"
+              :run-data="debugData" :environment-type="environmentType" :environment-group-id="envGroupId"
               @runRefresh="runRefresh" @errorRefresh="errorRefresh" ref="runTest"/>
       <!-- 调试结果 -->
       <el-drawer v-if="type!=='detail'" :visible.sync="debugVisible" :destroy-on-close="true" direction="ltr"
@@ -351,6 +351,7 @@ import "@/common/css/material-icons.css"
 import OutsideClick from "@/common/js/outside-click";
 import {saveScenario} from "@/business/components/api/automation/api-automation";
 import MsComponentConfig from "./component/ComponentConfig";
+import {ENV_TYPE} from "@/common/js/constants";
 
 let jsonPath = require('jsonpath');
 export default {
@@ -468,7 +469,8 @@ export default {
       clearMessage: "",
       runScenario: undefined,
       showFollow:false,
-      envGroupId: ""
+      envGroupId: "",
+      environmentType: ENV_TYPE.JSON
     }
   },
   watch: {
@@ -527,6 +529,9 @@ export default {
     projectId() {
       return getCurrentProjectID();
     },
+    ENV_TYPE() {
+      return ENV_TYPE;
+    }
   },
   methods: {
     currentUser: () => {
@@ -1366,12 +1371,21 @@ export default {
               let obj = JSON.parse(response.data.scenarioDefinition);
               if (obj) {
                 this.currentEnvironmentId = obj.environmentId;
-                if (obj.environmentMap) {
-                  this.projectEnvMap = objToStrMap(obj.environmentMap);
-                } else {
+                // if (obj.environmentMap) {
+                //   this.projectEnvMap = objToStrMap(obj.environmentMap);
+                // } else {
+                //   // 兼容历史数据
+                //   this.projectEnvMap.set(this.projectId, obj.environmentId);
+                // }
+                if (response.data.environmentJson) {
+                  this.projectEnvMap = objToStrMap(JSON.parse(response.data.environmentJson));
+                }
+                else {
                   // 兼容历史数据
                   this.projectEnvMap.set(this.projectId, obj.environmentId);
                 }
+                this.envGroupId = response.data.environmentGroupId;
+                this.environmentType = response.data.environmentType;
                 this.currentScenario.variables = [];
                 let index = 1;
                 if (obj.variables) {
@@ -1469,7 +1483,7 @@ export default {
       if (scenario.hashTree) {
         this.formatData(scenario.hashTree);
       }
-      this.currentScenario.environmentType = this.$refs.envPopover.radio;
+      this.currentScenario.environmentType = this.environmentType;
       this.currentScenario.environmentJson = JSON.stringify(strMapToObj(this.projectEnvMap));
       this.currentScenario.environmentGroupId = this.envGroupId;
       this.currentScenario.scenarioDefinition = scenario;

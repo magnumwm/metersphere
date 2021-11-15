@@ -46,6 +46,7 @@ import io.metersphere.log.vo.DetailColumn;
 import io.metersphere.log.vo.OperatingLogDetails;
 import io.metersphere.log.vo.api.AutomationReference;
 import io.metersphere.plugin.core.MsTestElement;
+import io.metersphere.service.EnvironmentGroupProjectService;
 import io.metersphere.service.RelationshipEdgeService;
 import io.metersphere.service.ScheduleService;
 import io.metersphere.service.SystemParameterService;
@@ -151,6 +152,8 @@ public class ApiAutomationService {
     private ApiScenarioFollowMapper apiScenarioFollowMapper;
     @Resource
     private TestResourcePoolMapper testResourcePoolMapper;
+    @Resource
+    private EnvironmentGroupProjectService environmentGroupProjectService;
 
     private ThreadLocal<Long> currentScenarioOrder = new ThreadLocal<>();
 
@@ -483,7 +486,7 @@ public class ApiAutomationService {
         if (BooleanUtils.isTrue(isValidEnum)) {
             scenario.setEnvironmentType(request.getEnvironmentType());
         } else {
-            scenario.setEnvironmentType(EnvironmentType.LIST.toString());
+            scenario.setEnvironmentType(EnvironmentType.JSON.toString());
         }
         scenario.setEnvironmentJson(request.getEnvironmentJson());
         scenario.setEnvironmentGroupId(request.getEnvironmentGroupId());
@@ -1075,6 +1078,7 @@ public class ApiAutomationService {
                     if (request.getScenarioTestPlanIdMap() != null && request.getScenarioTestPlanIdMap().containsKey(apiScenarioWithBLOBs.getId())) {
                         testPlanApiScenario = testPlanApiScenarioMapper.selectByPrimaryKey(request.getScenarioTestPlanIdMap().get(apiScenarioWithBLOBs.getId()));
                     }
+                    // todo 更新运行环境
                     boolean haveEnv = checkScenarioEnv(apiScenarioWithBLOBs, testPlanApiScenario);
                     if (!haveEnv) {
                         builder.append(apiScenarioWithBLOBs.getName()).append("; ");
@@ -1731,9 +1735,16 @@ public class ApiAutomationService {
     public String debugRun(RunDefinitionRequest request, List<MultipartFile> bodyFiles, List<MultipartFile> scenarioFiles) {
         Map<String, EnvironmentConfig> envConfig = new HashMap<>();
         Map<String, String> map = request.getEnvironmentMap();
+        String envType = request.getEnvironmentType();
+        if (StringUtils.equals(envType, EnvironmentType.GROUP.toString())) {
+            String environmentGroupId = request.getEnvironmentGroupId();
+            map = environmentGroupProjectService.getEnvMap(environmentGroupId);
+        }
+
         if (map != null) {
+            Map<String, String> finalMap = map;
             map.keySet().forEach(id -> {
-                ApiTestEnvironmentWithBLOBs environment = environmentService.get(map.get(id));
+                ApiTestEnvironmentWithBLOBs environment = environmentService.get(finalMap.get(id));
                 if (environment != null && environment.getConfig() != null) {
                     EnvironmentConfig env = JSONObject.parseObject(environment.getConfig(), EnvironmentConfig.class);
                     env.setApiEnvironmentid(environment.getId());

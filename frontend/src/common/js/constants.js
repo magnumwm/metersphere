@@ -194,7 +194,7 @@ export const WORKSTATION={
 }
 
 export const ENV_TYPE = {
-  LIST: "LIST",
+  JSON: "JSON",
   GROUP: "GROUP"
 }
 

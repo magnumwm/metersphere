@@ -1,8 +1,10 @@
 package io.metersphere.service;
 
 
+import com.alibaba.fastjson.JSON;
 import io.metersphere.base.domain.ApiTestEnvironmentExample;
 import io.metersphere.base.domain.ApiTestEnvironmentWithBLOBs;
+import io.metersphere.base.domain.EnvironmentGroupProject;
 import io.metersphere.base.mapper.ApiTestEnvironmentMapper;
 import io.metersphere.base.mapper.ext.ExtEnvGroupProjectMapper;
 import io.metersphere.dto.EnvironmentGroupProjectDTO;
@@ -10,7 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import javax.annotation.Resource;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author lyh
@@ -37,5 +42,19 @@ public class EnvironmentGroupProjectService {
             });
         }
         return list;
+    }
+
+    public String getEnvJson(String groupId) {
+        List<EnvironmentGroupProjectDTO> list = extEnvGroupProjectMapper.getList(groupId);
+        Map<String, String> map = list.stream()
+                .collect(Collectors.toMap(EnvironmentGroupProject::getProjectId, EnvironmentGroupProject::getEnvironmentId));
+        return JSON.toJSONString(map);
+    }
+
+    public Map<String, String> getEnvMap(String groupId) {
+        List<EnvironmentGroupProjectDTO> list = extEnvGroupProjectMapper.getList(groupId);
+        Map<String, String> map = list.stream()
+                .collect(Collectors.toMap(EnvironmentGroupProject::getProjectId, EnvironmentGroupProject::getEnvironmentId));
+        return map;
     }
 }

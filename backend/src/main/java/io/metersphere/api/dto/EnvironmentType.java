@@ -6,9 +6,9 @@ package io.metersphere.api.dto;
 
 public enum EnvironmentType {
     /**
-     * 环境列表
+     * 环境
      */
-    LIST,
+    JSON,
     /**
      * 环境组
      */

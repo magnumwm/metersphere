@@ -7,11 +7,11 @@
     @show="showPopover"
     trigger="click">
     <el-radio-group v-model="radio" style="margin-left: 20px;" @change="radioChange">
-      <el-radio :label="ENV_TYPE.LIST">环境列表</el-radio>
+      <el-radio :label="ENV_TYPE.JSON">环境列表</el-radio>
       <el-radio :label="ENV_TYPE.GROUP">环境组</el-radio>
     </el-radio-group>
     <env-select :project-ids="projectIds" :env-map="envMap" @close="visible = false" :result="result"
-                :show-config-button-with-out-permission="showConfigButtonWithOutPermission" v-show="!radio || radio === ENV_TYPE.LIST"
+                :show-config-button-with-out-permission="showConfigButtonWithOutPermission" v-show="!radio || radio === ENV_TYPE.JSON"
                 ref="envSelect" @setProjectEnvMap="setProjectEnvMap" :project-list="projectList"/>
     <!-- todo 如果工作空间下的环境组都不包含当前项目则不显示 -->
     <env-group ref="envGroup" v-show="radio === ENV_TYPE.GROUP" @close="visible = false"
@@ -58,12 +58,18 @@ export default {
       default() {
         return "";
       }
-    }
+    },
+    environmentType: String
   },
   data() {
     return {
       visible: false,
-      radio: ENV_TYPE.LIST,
+      radio: this.environmentType,
+    }
+  },
+  watch: {
+    environmentType(val) {
+      this.radio = val;
     }
   },
   computed: {
@@ -91,9 +97,7 @@ export default {
       return this.$refs.envSelect.checkEnv(data);
     },
     radioChange(val) {
-      if (val === ENV_TYPE.GROUP) {
-        this.$refs.envGroup.init();
-      }
+      this.$emit("update:environmentType", val);
     }
   }
 
