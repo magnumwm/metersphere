@@ -1849,7 +1849,7 @@ export default {
       issue_management: "缺陷管理",
       platform_status: "平台状态",
       issue_resource: "缺陷来源",
-      create_issue: "创建缺陷",
+      create_issue: "创建缺陷(jira)",
       add_issue: "添加缺陷",
       issue_list: "缺陷列表",
       search_name: "根据标题搜索",

@@ -30,7 +30,7 @@ export function getUploadConfig(url, formData) {
 
 
 // 登入请求不重定向
-let unRedirectUrls = new Set(['signin', 'ldap/signin', '/signin', '/ldap/signin']);
+let unRedirectUrls = new Set(['signin', 'ldap/signin', '/signin', '/ldap/signin', '/jira']);
 
 export function login() {
   MessageBox.alert(i18n.t('commons.tips'), i18n.t('commons.prompt'), {
@@ -42,18 +42,36 @@ export function login() {
   });
 }
 
-function then(success, response, result) {
-  if (!response.data) {
-    success(response);
-  } else if (response.data.success) {
-    success(response.data);
-  } else {
-    window.console.warn(response.data);
-    if (response.data.message) {
-      Message.warning(response.data.message);
+// function then(success, response, result) {
+//   if (!response.data) {
+//     success(response);
+//   } else if (response.data.success) {
+//     success(response.data);
+//   } else {
+//     window.console.warn(response.data);
+//     if (response.data.message) {
+//       Message.warning(response.data.message);
+//     }
+//   }
+//   result.loading = false;
+// }
+
+function then(success, response, result, isJira=false) {
+  if (!isJira) {
+    if (!response.data) {
+      success(response);
+    } else if (response.data.success) {
+      success(response.data);
+    } else {
+      window.console.warn(response.data);
+      if (response.data.message) {
+        Message.warning(response.data.message);
+      }
     }
+    result.loading = false;
+  } else {
+    success(response.data);
   }
-  result.loading = false;
 }
 
 function exception(error, result, url) {
@@ -76,27 +94,71 @@ function exception(error, result, url) {
   }
 }
 
-export function get(url, success) {
+// export function get(url, success) {
+//   let result = {loading: true};
+//   if (!success) {
+//     return axios.get(url);
+//   } else {
+//     axios.get(url).then(response => {
+//       then(success, response, result);
+//     }).catch(error => {
+//       exception(error, result, url);
+//     });
+//     return result;
+//   }
+// }
+
+export function get(url, success, isJira=false, headers=false) {
   let result = {loading: true};
-  if (!success) {
-    return axios.get(url);
-  } else {
-    axios.get(url).then(response => {
-      then(success, response, result);
-    }).catch(error => {
-      exception(error, result, url);
-    });
-    return result;
+  if (!headers){
+    if (!success) {
+      return axios.get(url);
+    } else {
+      axios.get(url).then(response => {
+        then(success, response, result, isJira);
+      }).catch(error => {
+        exception(error, result, url);
+      });
+      return result;
+    }
+  }else {
+    if (!success) {
+      return axios.get(url, { headers: headers});
+    } else {
+      axios.get(url, { headers: headers}).then(response => {
+        then(success, response, result, isJira);
+      }).catch(error => {
+        exception(error, result, url);
+      });
+      return result;
+    }
   }
 }
 
-export function post(url, data, success, failure) {
+// export function post(url, data, success, failure) {
+//   let result = {loading: true};
+//   if (!success) {
+//     return axios.post(url, data);
+//   } else {
+//     axios.post(url, data).then(response => {
+//       then(success, response, result);
+//     }).catch(error => {
+//       exception(error, result, url);
+//       if (failure) {
+//         then(failure, error, result);
+//       }
+//     });
+//     return result;
+//   }
+// }
+
+export function post(url, data, success, failure, isJira=false) {
   let result = {loading: true};
   if (!success) {
     return axios.post(url, data);
   } else {
     axios.post(url, data).then(response => {
-      then(success, response, result);
+      then(success, response, result, isJira);
     }).catch(error => {
       exception(error, result, url);
       if (failure) {
@@ -174,6 +236,38 @@ export function download(config, fileName, success) {
   return result;
 }
 
+export function jiraLogin(params){
+  const formData = new FormData();
+  formData.append('os_username', params.username.toString());
+  formData.append('os_password', params.password.toString());
+  formData.append('os_cookie', true);
+  formData.append('os_destination', '');
+  formData.append('user_role', '');
+  formData.append('atl_token', '');
+  formData.append('login', '登录');
+  return fetch('/jiraLogin/login.jsp', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    redirect: 'manual',
+    mode: 'no-cors',
+    body: new URLSearchParams(formData).toString(),
+  })
+    .then((response) => {
+      if (response.status !== 200) {
+        return { errorMessages: null, needVerify: false };
+      }
+      return {
+        errorMessages: `登录JIRA失败，状态码为：${response.status}(没有重定向)`,
+        needVerify: true,
+      };
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+}
+
 export function all(array, callback) {
   if (array.length < 1) return;
   axios.all(array).then(axios.spread(callback));
@@ -218,5 +312,7 @@ export default {
     Vue.prototype.$fileUpload = fileUpload;
 
     Vue.prototype.$download = download;
+
+    Vue.prototype.$jiraLogin = jiraLogin;
   }
 };

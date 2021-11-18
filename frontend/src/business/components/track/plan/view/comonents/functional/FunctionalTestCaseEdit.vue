@@ -139,6 +139,7 @@ import ApiTestResult from "../test/ApiTestResult";
 import PerformanceTestDetail from "../test/PerformanceTestDetail";
 import PerformanceTestResult from "../test/PerformanceTestResult";
 import {getCurrentProjectID, getUUID, hasPermission, listenGoBack, removeGoBackListener} from "@/common/js/utils";
+import JiraModal from './JiraModal'
 import TestCaseAttachment from "@/business/components/track/case/components/TestCaseAttachment";
 import CaseComment from "@/business/components/track/case/components/CaseComment";
 import MsPreviousNextButton from "../../../../../common/components/MsPreviousNextButton";
@@ -173,7 +174,8 @@ export default {
     ApiTestResult,
     ApiTestDetail,
     TestPlanTestCaseStatusButton,
-    TestCaseAttachment
+    TestCaseAttachment,
+    JiraModal
   },
   data() {
     return {

@@ -15,6 +15,7 @@ public class IssuesRequest extends BaseQueryRequest {
     private String testCaseId;
     private List<String> tapdUsers;
     private String userId;
+    private String issueKey;
     /**
      * zentao bug 处理人
      */
