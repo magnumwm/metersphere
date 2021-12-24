@@ -63,6 +63,8 @@ public class TestPlanTestCaseService {
     private TestCaseTestMapper testCaseTestMapper;
     @Resource
     private TestCaseCommentService testCaseCommentService;
+    @Resource
+    private TestCaseService testCaseService;
 
     public List<TestPlanTestCaseWithBLOBs> listAll() {
         TestPlanTestCaseExample example = new TestPlanTestCaseExample();
@@ -215,14 +217,6 @@ public class TestPlanTestCaseService {
         testPlanTestCaseMapper.deleteByExample(example);
     }
 
-    public List<String> getTestPlanTestCaseIds(String testId) {
-        return extTestPlanTestCaseMapper.getTestPlanTestCaseIds(testId);
-    }
-
-    public int updateTestCaseStates(List<String> ids, String reportStatus) {
-        return extTestPlanTestCaseMapper.updateTestCaseStates(ids, reportStatus);
-    }
-
     /**
      * 更新测试计划关联接口测试的功能用例的状态
      *
@@ -307,7 +301,16 @@ public class TestPlanTestCaseService {
             }
         });
         request.setOrders(orders);
-        return extTestPlanTestCaseMapper.listForMinder(request);
+        List<TestPlanCaseDTO> cases = extTestPlanTestCaseMapper.listForMinder(request);
+        List<String> caseIds = cases.stream().map(TestPlanCaseDTO::getCaseId).collect(Collectors.toList());
+        HashMap<String, List<IssuesDao>> issueMap = testCaseService.buildMinderIssueMap(caseIds);
+        for (TestPlanCaseDTO item : cases) {
+            List<IssuesDao> issues = issueMap.get(item.getCaseId());
+            if (issues != null) {
+                item.setIssueList(issues);
+            }
+        }
+        return cases;
     }
 
     public void editTestCaseForMinder(List<TestPlanTestCaseWithBLOBs> testPlanTestCases) {

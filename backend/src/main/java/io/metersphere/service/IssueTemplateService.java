@@ -2,6 +2,8 @@ package io.metersphere.service;
 
 import com.alibaba.fastjson.JSON;
 import io.metersphere.base.domain.*;
+import io.metersphere.base.mapper.CustomFieldMapper;
+import io.metersphere.base.mapper.CustomFieldTemplateMapper;
 import io.metersphere.base.mapper.IssueTemplateMapper;
 import io.metersphere.base.mapper.ext.ExtIssueTemplateMapper;
 import io.metersphere.commons.constants.TemplateConstants;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,6 +49,12 @@ public class IssueTemplateService extends TemplateBaseService {
 
     @Resource
     ProjectService projectService;
+
+    @Resource
+    CustomFieldMapper customFieldMapper;
+
+    @Resource
+    CustomFieldTemplateMapper customFieldTemplateMapper;
 
     public String add(UpdateIssueTemplateRequest request) {
         checkExist(request);
@@ -82,7 +91,7 @@ public class IssueTemplateService extends TemplateBaseService {
             String originId = request.getId();
             // 如果是全局字段，则创建对应工作空间字段
             String id = add(request);
-            projectService.updateIssueTemplate(originId, id);
+            projectService.updateIssueTemplate(originId, id, request.getWorkspaceId());
         } else {
             checkExist(request);
             customFieldTemplateService.deleteByTemplateId(request.getId());
@@ -206,7 +215,7 @@ public class IssueTemplateService extends TemplateBaseService {
     public IssueTemplateDao getTemplate(String projectId) {
         Project project = projectService.getProjectById(projectId);
         String issueTemplateId = project.getIssueTemplateId();
-        IssueTemplate issueTemplate = null;
+        IssueTemplate issueTemplate;
         IssueTemplateDao issueTemplateDao = new IssueTemplateDao();
         if (StringUtils.isNotBlank(issueTemplateId)) {
             issueTemplate = issueTemplateMapper.selectByPrimaryKey(issueTemplateId);
@@ -216,19 +225,66 @@ public class IssueTemplateService extends TemplateBaseService {
         } else {
             issueTemplate = getDefaultTemplate(project.getWorkspaceId());
         }
+        if (!project.getPlatform().equals(issueTemplate.getPlatform())) {
+            MSException.throwException("请在项目中配置缺陷模板");
+        }
         BeanUtils.copyBean(issueTemplateDao, issueTemplate);
         List<CustomFieldDao> result = customFieldService.getCustomFieldByTemplateId(issueTemplate.getId());
         issueTemplateDao.setCustomFields(result);
         return issueTemplateDao;
     }
 
-    public String getLogDetails(String id) {
+    public String getLogDetails(String id, List<CustomFieldTemplate>newCustomFieldTemplates) {
+        List<DetailColumn> columns = new LinkedList<>();
         IssueTemplate templateWithBLOBs = issueTemplateMapper.selectByPrimaryKey(id);
-        if (templateWithBLOBs != null) {
-            List<DetailColumn> columns = ReflexObjectUtil.getColumns(templateWithBLOBs, SystemReference.issueFieldColumns);
-            OperatingLogDetails details = new OperatingLogDetails(JSON.toJSONString(templateWithBLOBs.getId()), null, templateWithBLOBs.getName(), templateWithBLOBs.getCreateUser(), columns);
-            return JSON.toJSONString(details);
+        if(templateWithBLOBs==null){
+            return null;
         }
-        return null;
+        CustomFieldTemplateExample example = new CustomFieldTemplateExample();
+        example.createCriteria().andTemplateIdEqualTo(templateWithBLOBs.getId());
+        example.createCriteria().andSceneEqualTo("ISSUE");
+        List<CustomFieldTemplate> customFieldTemplates = customFieldTemplateMapper.selectByExample(example);
+        if(newCustomFieldTemplates.size()>customFieldTemplates.size()){
+            for (int i = 0; i < newCustomFieldTemplates.size()-customFieldTemplates.size(); i++) {
+                CustomFieldTemplate customFieldTemplate = new CustomFieldTemplate();
+                customFieldTemplates.add(customFieldTemplate);
+            }
+        }
+
+        return getCustomFieldColums(columns, templateWithBLOBs, customFieldTemplates);
+
+    }
+
+    public String getLogDetails(UpdateIssueTemplateRequest request) {
+        List<DetailColumn> columns = new LinkedList<>();
+        IssueTemplate templateWithBLOBs = issueTemplateMapper.selectByPrimaryKey(request.getId());
+        if(templateWithBLOBs==null){
+            return null;
+        }
+        List<CustomFieldTemplate> newCustomFieldTemplates = request.getCustomFields();
+        CustomFieldTemplateExample example = new CustomFieldTemplateExample();
+        example.createCriteria().andTemplateIdEqualTo(templateWithBLOBs.getId());
+        example.createCriteria().andSceneEqualTo("ISSUE");
+        List<CustomFieldTemplate> customFieldTemplates = customFieldTemplateMapper.selectByExample(example);
+        if(newCustomFieldTemplates.size()<customFieldTemplates.size()){
+            for (int i = 0; i < customFieldTemplates.size()-newCustomFieldTemplates.size(); i++) {
+                CustomFieldTemplate customFieldTemplate = new CustomFieldTemplate();
+                newCustomFieldTemplates.add(customFieldTemplate);
+            }
+        }
+        return getCustomFieldColums(columns, templateWithBLOBs, newCustomFieldTemplates);
+    }
+
+    private String getCustomFieldColums(List<DetailColumn> columns, IssueTemplate templateWithBLOBs, List<CustomFieldTemplate> customFields) {
+        for (CustomFieldTemplate customFieldTemplate : customFields) {
+            CustomField customField = customFieldMapper.selectByPrimaryKey(customFieldTemplate.getFieldId());
+            customField.setDefaultValue(customFieldTemplate.getDefaultValue());
+            List<DetailColumn> columnsField = ReflexObjectUtil.getColumns(customField, SystemReference.issueFieldColumns);
+            columns.addAll(columnsField);
+        }
+        List<DetailColumn> columnIssues = ReflexObjectUtil.getColumns(templateWithBLOBs, SystemReference.issueFieldColumns);
+        columns.addAll(columnIssues);
+        OperatingLogDetails details = new OperatingLogDetails(JSON.toJSONString(templateWithBLOBs.getId()), null, templateWithBLOBs.getName(), templateWithBLOBs.getCreateUser(), columns);
+        return JSON.toJSONString(details);
     }
 }

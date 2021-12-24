@@ -71,6 +71,7 @@ public class TestReviewTestCaseService {
             String reviewId = item.getReviewId();
             List<String> userIds = getReviewUserIds(reviewId);
             item.setReviewerName(getReviewName(userIds, userMap));
+            item.setMaintainerName(userMap.get(item.getMaintainer()));
         });
         return list;
     }
@@ -356,7 +357,7 @@ public class TestReviewTestCaseService {
     }
 
     public void initOrderField() {
-        ServiceUtils.initOrderField(TestCaseReviewTestCase.class, TestCaseReviewMapper.class,
+        ServiceUtils.initOrderField(TestCaseReviewTestCase.class, TestCaseReviewTestCaseMapper.class,
                 extTestReviewCaseMapper::selectReviewIds,
                 extTestReviewCaseMapper::getIdsOrderByUpdateTime);
     }

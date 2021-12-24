@@ -37,4 +37,5 @@ public class IssuesRequest extends BaseQueryRequest {
 
     private String requestType;
     private String status;
+    private String defaultCustomFields;
 }

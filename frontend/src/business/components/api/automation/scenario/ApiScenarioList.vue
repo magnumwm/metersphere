@@ -6,7 +6,7 @@
 
       <ms-table
         :data="tableData"
-        :screen-height="isRelate ? 'calc(100vh - 400px)' :  screenHeight"
+        :screen-height="isRelate ? 'calc(100vh - 300px)' :  screenHeight"
         :condition="condition"
         :page-size="pageSize"
         :operators="isRelate ? [] : operators"
@@ -52,8 +52,7 @@
                            :fields-width="fieldsWidth"
                            min-width="120px">
             <template slot-scope="scope">
-              <!--<span style="cursor:pointer" v-if="isReadOnly"> {{ scope.row.num }} </span>-->
-              <el-tooltip content="编辑">
+              <el-tooltip :content="$t('commons.edit')">
                 <a style="cursor:pointer" @click="edit(scope.row)"> {{ scope.row.num }} </a>
               </el-tooltip>
             </template>
@@ -66,8 +65,7 @@
             :fields-width="fieldsWidth"
             min-width="120px">
             <template slot-scope="scope">
-              <!--<span style="cursor:pointer" v-if="isReadOnly"> {{ scope.row.customNum }} </span>-->
-              <el-tooltip content="编辑">
+              <el-tooltip :content="$t('commons.edit')">
                 <a style="cursor:pointer" @click="edit(scope.row)"> {{ scope.row.customNum }} </a>
               </el-tooltip>
             </template>
@@ -85,7 +83,7 @@
             sortable
             :field="item"
             :fields-width="fieldsWidth"
-            :filters="LEVEL_FILTERS"
+            :filters="apiscenariofilters.LEVEL_FILTERS"
             min-width="130px"
             :label="$t('api_test.automation.case_level')">
             <template v-slot:default="scope">
@@ -98,7 +96,7 @@
                            sortable
                            :field="item"
                            :fields-width="fieldsWidth"
-                           :filters="STATUS_FILTERS"
+                           :filters="apiscenariofilters.STATUS_FILTERS"
                            min-width="120px">
             <template v-slot:default="scope">
               <plan-status-table-item :value="scope.row.status"/>
@@ -126,12 +124,45 @@
                            :field="item"
                            :fields-width="fieldsWidth"
                            sortable/>
-          <ms-table-column prop="userName" min-width="120px"
+          <ms-table-column prop="creator" min-width="120px"
                            :label="$t('api_test.automation.creator')"
                            :filters="userFilters"
                            :field="item"
                            :fields-width="fieldsWidth"
                            sortable="custom"/>
+
+          <ms-table-column
+            :field="item"
+            :fields-width="fieldsWidth"
+            prop="environmentMap"
+            :label="$t('commons.environment')"
+            min-width="180">
+            <template v-slot:default="{row}">
+              <div v-if="row.environmentMap">
+                <span v-for="(k, v, index) in row.environmentMap" :key="index">
+                  <span v-if="index===0">
+                    <span class="project-name" :title="v">{{v}}</span>:
+                    <el-tag type="success" size="mini" effect="plain">
+                      <span class="project-env">{{k}}</span>
+                    </el-tag>
+                    <br/>
+                  </span>
+                  <el-popover
+                    placement="top"
+                    width="350"
+                    trigger="click">
+                    <div v-for="(k, v, index) in row.environmentMap" :key="index">
+                      <span class="plan-case-env">{{v}}:
+                        <el-tag type="success" size="mini" effect="plain">{{k}}</el-tag><br/>
+                      </span>
+                    </div>
+                    <el-link v-if="index === 1" slot="reference" type="info" :underline="false" icon="el-icon-more"/>
+                  </el-popover>
+                </span>
+              </div>
+            </template>
+          </ms-table-column>
+
           <ms-table-column prop="updateTime"
                            :field="item"
                            :fields-width="fieldsWidth"
@@ -160,7 +191,7 @@
                            min-width="80px"/>
           <ms-table-column prop="lastResult"
                            :label="$t('api_test.automation.last_result')"
-                           :filters="RESULT_FILTERS"
+                           :filters="apiscenariofilters.RESULT_FILTERS"
                            :field="item"
                            :fields-width="fieldsWidth"
                            sortable
@@ -220,7 +251,7 @@
         <el-drawer :visible.sync="showReportVisible" :destroy-on-close="true" direction="ltr" :withHeader="true"
                    :modal="false"
                    size="90%">
-          <ms-api-report-detail @invisible="showReportVisible = false" @refresh="search" :infoDb="infoDb"
+          <ms-api-report-detail @invisible="showReportVisible = false" @refresh="search" :infoDb="infoDb" :show-cancel-button="false"
                                 :report-id="showReportId" :currentProjectId="projectId"/>
         </el-drawer>
         <!--测试计划-->
@@ -237,6 +268,7 @@
     <batch-move @refresh="search" @moveSave="moveSave" ref="testBatchMove"/>
     <ms-run-mode @handleRunBatch="handleRunBatch" ref="runMode"/>
     <ms-run :debug="true" :environment="projectEnvMap" @runRefresh="runRefresh" :reportId="reportId" :saved="true"
+            :environment-type="environmentType" :environment-group-id="envGroupId"
             :run-data="debugData" ref="runTest"/>
     <ms-task-center ref="taskCenter" :show-menu="false"/>
     <relationship-graph-drawer :graph-data="graphData" ref="relationshipGraph"/>
@@ -245,7 +277,7 @@
 </template>
 
 <script>
-import {downloadFile, getCurrentProjectID, getUUID, setDefaultTheme, strMapToObj} from "@/common/js/utils";
+import {downloadFile, getCurrentProjectID, getUUID, objToStrMap, strMapToObj} from "@/common/js/utils";
 import {API_SCENARIO_CONFIGS} from "@/business/components/common/components/search/search-components";
 import {API_SCENARIO_LIST} from "../../../../../common/js/constants";
 
@@ -422,7 +454,8 @@ export default {
           permissions: ['PROJECT_API_SCENARIO:READ+DELETE']
         },
         {
-          name: "批量恢复", handleClick: this.handleBatchRestore
+          name: this.$t('commons.batch_restore'),
+          handleClick: this.handleBatchRestore
         },
       ],
       unTrashButtons: [
@@ -452,7 +485,7 @@ export default {
           permissions: ['PROJECT_API_SCENARIO:READ+DELETE']
         },
         {
-          name: "生成依赖关系",
+          name: this.$t('test_track.case.generate_dependencies'),
           handleClick: this.generateGraph,
           isXPack: true,
           permissions: ['PROJECT_API_SCENARIO:READ+EDIT']
@@ -468,7 +501,6 @@ export default {
           permissions: ['PROJECT_API_SCENARIO:READ+CREATE_PERFORMANCE_BATCH']
         },
       ],
-      ...API_SCENARIO_FILTERS,
       typeArr: [
         {id: 'level', name: this.$t('test_track.case.priority')},
         {id: 'status', name: this.$t('test_track.plan.plan_status')},
@@ -497,18 +529,14 @@ export default {
         projectEnv: [],
         projectId: ''
       },
-      graphData: {}
+      graphData: {},
+      environmentType: "",
+      envGroupId: "",
+      apiscenariofilters:{},
     };
   },
   created() {
-    // if (!hasLicense()) {
-    //   for (let i = 0; i < this.unTrashButtons.length; i++) {
-    //     if (this.unTrashButtons[i].handleClick === this.generateGraph) {
-    //       this.unTrashButtons.splice(i,1);
-    //       break;
-    //     }
-    //   }
-    // }
+    this.apiscenariofilters = API_SCENARIO_FILTERS();
     scenario.$on('hide', id => {
       this.hideStopBtn(id);
     });
@@ -722,6 +750,8 @@ export default {
         let param = {};
         param.mapping = strMapToObj(form.map);
         param.envMap = strMapToObj(form.projectEnvMap);
+        param.environmentType = form.environmentType;
+        param.environmentGroupId = form.envGroupId;
         this.$post('/api/automation/batch/update/env', param, () => {
           this.$success(this.$t('commons.save_success'));
           this.search();
@@ -765,13 +795,15 @@ export default {
 
       // todo 选取全部数据
       if (this.condition.selectAll) {
-        this.$warning("暂不支持批量添加所有场景到测试计划！");
+        this.$warning(this.$t('api_test.scenario.warning_context'));
       }
 
       this.planVisible = false;
 
       obj.mapping = strMapToObj(params[2]);
       obj.envMap = strMapToObj(params[1]);
+      obj.environmentType = params[3];
+      obj.envGroupId = params[4];
 
       this.$post("/api/automation/scenario/plan", obj, response => {
         this.$success(this.$t("commons.save_success"));
@@ -920,6 +952,9 @@ export default {
         if (!stepArray[i].clazzName) {
           stepArray[i].clazzName = TYPE_TO_C.get(stepArray[i].type);
         }
+        if (stepArray[i].type === "Assertions" && !stepArray[i].document) {
+          stepArray[i].document = {type: "JSON", data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}};
+        }
         if (stepArray[i] && stepArray[i].authManager && !stepArray[i].authManager.clazzName) {
           stepArray[i].authManager.clazzName = TYPE_TO_C.get(stepArray[i].authManager.type);
         }
@@ -964,15 +999,25 @@ export default {
             onSampleError: scenarioStep.onSampleError,
             enableCookieShare: scenarioStep.enableCookieShare,
             headers: scenarioStep.headers,
-            environmentMap: scenarioStep.environmentMap ? new Map(Object.entries(scenarioStep.environmentMap)) : new Map,
+            environmentMap: this.currentScenario.environmentJson ? objToStrMap(JSON.parse(this.currentScenario.environmentJson)) : new Map,
             hashTree: scenarioStep.hashTree
           };
-          if (scenarioStep.environmentMap) {
-            this.projectEnvMap = new Map(Object.entries(scenarioStep.environmentMap));
+          if (this.currentScenario.environmentJson) {
+            this.projectEnvMap = objToStrMap(JSON.parse(this.currentScenario.environmentJson));
           }
-          this.reportId = getUUID().substring(0, 8);
-          this.runVisible = true;
-          this.$set(row, "isStop", true);
+          this.environmentType = this.currentScenario.environmentType;
+          this.envGroupId = this.currentScenario.environmentGroupId;
+
+          this.$get("/api/automation/checkScenarioEnv/" + this.currentScenario.id, res => {
+            let data = res.data;
+            if (!data) {
+              this.$warning(this.$t('workspace.env_group.please_select_env_for_current_scenario'));
+              return false;
+            }
+            this.reportId = getUUID().substring(0, 8);
+            this.runVisible = true;
+            this.$set(row, "isStop", true);
+          })
         }
       });
     },
@@ -1013,7 +1058,7 @@ export default {
           if (!checkResult.deleteFlag) {
             alertMsg = "";
             checkResult.checkMsg.forEach(item => {
-              alertMsg += item + ";";
+              alertMsg += item;
             });
             if (alertMsg === "") {
               alertMsg = this.$t('load_test.delete_threadgroup_confirm') + " ？";
@@ -1196,4 +1241,34 @@ export default {
   border-color: #dd3636;
   color: white;
 }
+
+.plan-case-env {
+  display: inline-block;
+  padding: 0 0;
+  max-width: 350px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  margin-left: 5px;
+}
+
+.project-name {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 80px;
+  vertical-align: middle;
+}
+
+.project-env{
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 50px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
 </style>

@@ -1,6 +1,7 @@
 <template>
   <ms-container>
     <ms-main-container>
+
       <el-card class="table-card">
         <template v-slot:header>
           <ms-table-header :create-permission="['PROJECT_TRACK_ISSUE:READ+CREATE']" :condition.sync="page.condition" @search="getIssues" @create="handleCreate"
@@ -34,13 +35,6 @@
           ref="table"
         >
     <span v-for="(item) in fields" :key="item.key">
-<!--          <ms-table-column
-           :label="$t('test_track.issue.id')"
-           prop="id"
-           :field="item"
-           :fields-width="fieldsWidth"
-           v-if="false">
-          </ms-table-column>-->
         <ms-table-column width="1">
         </ms-table-column>
           <ms-table-column
@@ -78,7 +72,8 @@
                   :label="$t('test_track.issue.platform_status') "
                   prop="platformStatus">
             <template v-slot="scope">
-              {{ scope.row.platformStatus ? scope.row.platformStatus : '--'}}
+              <span v-if="scope.row.platform ==='Zentao'">{{ scope.row.platformStatus ? issueStatusMap[scope.row.platformStatus] : '--'}}</span>
+              <span v-else>{{ scope.row.platformStatus ? scope.row.platformStatus : '--'}}</span>
             </template>
           </ms-table-column>
 
@@ -167,27 +162,24 @@ import MsTableOperators from "@/business/components/common/components/MsTableOpe
 import MsTableButton from "@/business/components/common/components/MsTableButton";
 import MsTablePagination from "@/business/components/common/pagination/TablePagination";
 import {
-  CUSTOM_FIELD_SCENE_OPTION,
-  CUSTOM_FIELD_TYPE_OPTION,
-  FIELD_TYPE_MAP, ISSUE_PLATFORM_OPTION,
+  ISSUE_PLATFORM_OPTION,
   ISSUE_STATUS_MAP,
   SYSTEM_FIELD_NAME_MAP
 } from "@/common/js/table-constants";
 import MsTableHeader from "@/business/components/common/components/MsTableHeader";
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import IssueEdit from "@/business/components/track/issue/IssueEdit";
-import {getIssues, syncIssues} from "@/network/Issue";
+import {getIssuePartTemplateWithProject, getIssues, syncIssues} from "@/network/Issue";
 import {
   getCustomFieldValue,
   getCustomTableWidth,
-  getPageInfo, getTableHeaderWithCustomFields,saveLastTableSortField,getLastTableSortField
+  getPageInfo, getTableHeaderWithCustomFields, getLastTableSortField
 } from "@/common/js/tableUtils";
 import MsContainer from "@/business/components/common/components/MsContainer";
 import MsMainContainer from "@/business/components/common/components/MsMainContainer";
-import {getCurrentProjectID} from "@/common/js/utils";
-import {getIssueTemplate} from "@/network/custom-field-template";
+import {getCurrentProjectID, getCurrentWorkspaceId} from "@/common/js/utils";
 import {getProjectMember} from "@/network/user";
-import {post} from "@/common/js/ajax";
+import {LOCAL} from "@/common/js/constants";
 
 export default {
   name: "IssueList",
@@ -224,7 +216,7 @@ export default {
       issueTemplate: {},
       members: [],
       isThirdPart: false,
-      creatorFilters: []
+      creatorFilters: [],
     };
   },
   watch: {
@@ -238,39 +230,14 @@ export default {
     getProjectMember((data) => {
       this.members = data;
     });
-    getIssueTemplate()
-      .then((template) => {
-        this.issueTemplate = template;
-        if (this.issueTemplate.platform === 'metersphere') {
-          this.isThirdPart = false;
-        } else {
-          this.isThirdPart = true;
-        }
-        this.fields = getTableHeaderWithCustomFields('ISSUE_LIST', this.issueTemplate.customFields);
-        if (!this.isThirdPart) {
-          for (let i = 0; i < this.fields.length; i++) {
-            if (this.fields[i].id === 'platformStatus') {
-              this.fields.splice(i, 1);
-              break;
-            }
-          }
-        }
-        this.$refs.table.reloadTable();
-      });
+    getIssuePartTemplateWithProject((template) => {
+      this.initFields(template);
+    });
     this.getIssues();
   },
   computed: {
-    fieldFilters() {
-      return CUSTOM_FIELD_TYPE_OPTION;
-    },
     platformFilters() {
      return ISSUE_PLATFORM_OPTION;
-    },
-    sceneFilters() {
-      return CUSTOM_FIELD_SCENE_OPTION;
-    },
-    fieldTypeMap() {
-      return FIELD_TYPE_MAP;
     },
     issueStatusMap() {
       return ISSUE_STATUS_MAP;
@@ -281,21 +248,41 @@ export default {
     projectId() {
       return getCurrentProjectID();
     },
-
-
+    workspaceId(){
+      return getCurrentWorkspaceId();
+    }
   },
   created() {
     this.getMaintainerOptions();
   },
   methods: {
     tableDoLayout() {
-      this.$refs.table.doLayout();
+      if (this.$refs.table) this.$refs.table.doLayout();
     },
     getCustomFieldValue(row, field) {
       return getCustomFieldValue(row, field, this.members);
     },
+    initFields(template) {
+      this.issueTemplate = template;
+      if (this.issueTemplate.platform === LOCAL) {
+        this.isThirdPart = false;
+      } else {
+        this.isThirdPart = true;
+      }
+      this.fields = getTableHeaderWithCustomFields('ISSUE_LIST', this.issueTemplate.customFields);
+      if (!this.isThirdPart) {
+        for (let i = 0; i < this.fields.length; i++) {
+          if (this.fields[i].id === 'platformStatus') {
+            this.fields.splice(i, 1);
+            break;
+          }
+        }
+      }
+      if (this.$refs.table) this.$refs.table.reloadTable();
+    },
     getIssues() {
       this.page.condition.projectId = this.projectId;
+      this.page.condition.workspaceId= this.workspaceId;
       this.page.condition.orders = getLastTableSortField(this.tableHeaderKey);
       this.page.result = getIssues(this.page);
     },
@@ -308,17 +295,17 @@ export default {
 
     },
     handleEdit(data) {
-      this.$refs.issueEdit.open(data);
+      this.$refs.issueEdit.open(data, 'edit');
     },
     handleCreate() {
-      this.$refs.issueEdit.open();
+      this.$refs.issueEdit.open(null, 'add');
     },
     handleCopy(data) {
       let copyData = {};
       Object.assign(copyData, data);
       copyData.id = null;
       copyData.name = data.name + '_copy';
-      this.$refs.issueEdit.open(copyData);
+      this.$refs.issueEdit.open(copyData, 'copy');
     },
     handleDelete(data) {
       this.page.result = this.$get('issues/delete/' + data.id, () => {
@@ -327,9 +314,6 @@ export default {
       });
     },
     btnDisable(row) {
-      if (this.issueTemplate.platform == "metersphere" && row.platform == 'Local') {
-        return false;
-      }
       if (this.issueTemplate.platform !== row.platform) {
         return true;
       }

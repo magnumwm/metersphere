@@ -3,7 +3,6 @@ package io.metersphere.performance.engine;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.metersphere.Application;
-import io.metersphere.api.dto.RunRequest;
 import io.metersphere.base.domain.FileContent;
 import io.metersphere.base.domain.FileMetadata;
 import io.metersphere.base.domain.LoadTestReportWithBLOBs;
@@ -13,6 +12,7 @@ import io.metersphere.commons.constants.ResourcePoolTypeEnum;
 import io.metersphere.commons.constants.ResourceStatusEnum;
 import io.metersphere.commons.exception.MSException;
 import io.metersphere.commons.utils.LogUtil;
+import io.metersphere.dto.JmeterRunRequestDTO;
 import io.metersphere.i18n.Translator;
 import io.metersphere.performance.engine.docker.DockerTestEngine;
 import io.metersphere.performance.parse.EngineSourceParser;
@@ -96,7 +96,7 @@ public class EngineFactory {
         return null;
     }
 
-    public static Engine createApiEngine(RunRequest runRequest) {
+    public static Engine createApiEngine(JmeterRunRequestDTO runRequest) {
         try {
             return (Engine) ConstructorUtils.invokeConstructor(kubernetesTestEngineClass, runRequest);
         } catch (Exception e) {
@@ -110,6 +110,12 @@ public class EngineFactory {
         final List<FileMetadata> fileMetadataList = performanceTestService.getFileMetadataByTestId(loadTestReport.getTestId());
         if (org.springframework.util.CollectionUtils.isEmpty(fileMetadataList)) {
             MSException.throwException(Translator.get("run_load_test_file_not_found") + loadTestReport.getTestId());
+        }
+        // 报告页面点击下载执行zip
+        boolean isLocal = false;
+        if (ratios.length == 1 && ratios[0] < 0) {
+            ratios[0] = 1;
+            isLocal = true;
         }
 
         List<FileMetadata> jmxFiles = fileMetadataList.stream().filter(f -> StringUtils.equalsIgnoreCase(f.getType(), FileType.JMX.name())).collect(Collectors.toList());
@@ -132,6 +138,22 @@ public class EngineFactory {
             for (int i = 0; i < jsonArray.size(); i++) {
                 if (jsonArray.get(i) instanceof List) {
                     JSONArray o = jsonArray.getJSONArray(i);
+                    String strategy = "auto";
+                    int resourceNodeIndex = 0;
+                    JSONArray tgRatios = null;
+                    for (int j = 0; j < o.size(); j++) {
+                        JSONObject b = o.getJSONObject(j);
+                        String key = b.getString("key");
+                        if ("strategy".equals(key) && !isLocal) {
+                            strategy = b.getString("value");
+                        }
+                        if ("resourceNodeIndex".equals(key)) {
+                            resourceNodeIndex = b.getIntValue("value");
+                        }
+                        if ("ratios".equals(key)) {
+                            tgRatios = b.getJSONArray("value");
+                        }
+                    }
                     for (int j = 0; j < o.size(); j++) {
                         JSONObject b = o.getJSONObject(j);
                         String key = b.getString("key");
@@ -142,17 +164,45 @@ public class EngineFactory {
                         if (values instanceof List) {
                             Object value = b.get("value");
                             if ("TargetLevel".equals(key)) {
-                                Integer targetLevel = ((Integer) b.get("value"));
-                                if (resourceIndex + 1 == ratios.length) {
-                                    double beforeLast = 0; // 前几个线程数
-                                    for (int k = 0; k < ratios.length - 1; k++) {
-                                        beforeLast += Math.round(targetLevel * ratios[k]);
-                                    }
-                                    value = Math.round(targetLevel - beforeLast);
-                                } else {
-                                    value = Math.round(targetLevel * ratios[resourceIndex]);
+                                switch (strategy) {
+                                    default:
+                                    case "auto":
+                                        Integer targetLevel = ((Integer) b.get("value"));
+                                        if (resourceIndex + 1 == ratios.length) {
+                                            double beforeLast = 0; // 前几个线程数
+                                            for (int k = 0; k < ratios.length - 1; k++) {
+                                                beforeLast += Math.round(targetLevel * ratios[k]);
+                                            }
+                                            value = Math.round(targetLevel - beforeLast);
+                                        } else {
+                                            value = Math.round(targetLevel * ratios[resourceIndex]);
+                                        }
+                                        break;
+                                    case "specify":
+                                        Integer threadNum = ((Integer) b.get("value"));
+                                        if (resourceNodeIndex == resourceIndex) {
+                                            value = Math.round(threadNum);
+                                        } else {
+                                            value = Math.round(0);
+                                        }
+                                        break;
+                                    case "custom":
+                                        Integer threadNum2 = ((Integer) b.get("value"));
+                                        if (CollectionUtils.isNotEmpty(tgRatios)) {
+                                            if (resourceIndex + 1 == tgRatios.size()) {
+                                                double beforeLast = 0; // 前几个线程数
+                                                for (int k = 0; k < tgRatios.size() - 1; k++) {
+                                                    beforeLast += Math.round(threadNum2 * tgRatios.getDoubleValue(k));
+                                                }
+                                                value = Math.round(threadNum2 - beforeLast);
+                                            } else {
+                                                value = Math.round(threadNum2 * tgRatios.getDoubleValue(resourceIndex));
+                                            }
+                                        }
+                                        break;
                                 }
                             }
+
                             ((List<Object>) values).add(value);
                             engineContext.addProperty(key, values);
                         }
@@ -250,12 +300,20 @@ public class EngineFactory {
                     rootDocument = docBuilder.parse(inputSource);
                     Element jmeterTestPlan = rootDocument.getDocumentElement();
                     NodeList childNodes = jmeterTestPlan.getChildNodes();
+
+                    outer:
                     for (int i = 0; i < childNodes.getLength(); i++) {
                         Node node = childNodes.item(i);
                         if (node instanceof Element) {
                             // jmeterTestPlan的子元素肯定是<hashTree></hashTree>
-                            hashTree = (Element) node;
-                            break;
+                            NodeList childNodes1 = node.getChildNodes();
+                            for (int j = 0; j < childNodes1.getLength(); j++) {
+                                Node item = childNodes1.item(j);
+                                if (StringUtils.equalsIgnoreCase("hashTree", item.getNodeName())) {
+                                    hashTree = (Element) node;
+                                    break outer;
+                                }
+                            }
                         }
                     }
                 } else {
@@ -270,9 +328,19 @@ public class EngineFactory {
                             NodeList secondChildNodes = secondHashTree.getChildNodes();
                             for (int j = 0; j < secondChildNodes.getLength(); j++) {
                                 Node item = secondChildNodes.item(j);
-                                Node newNode = item.cloneNode(true);
-                                rootDocument.adoptNode(newNode);
-                                hashTree.appendChild(newNode);
+                                if (StringUtils.equalsIgnoreCase("TestPlan", item.getNodeName())) {
+                                    continue;
+                                }
+                                if (StringUtils.equalsIgnoreCase("hashTree", item.getNodeName())) {
+                                    NodeList itemChildNodes = item.getChildNodes();
+                                    for (int k = 0; k < itemChildNodes.getLength(); k++) {
+                                        Node item1 = itemChildNodes.item(k);
+                                        Node newNode = item1.cloneNode(true);
+                                        rootDocument.adoptNode(newNode);
+                                        hashTree.appendChild(newNode);
+                                    }
+                                }
+
                             }
                         }
                     }

@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.metersphere.api.dto.ApiTestImportRequest;
 import io.metersphere.api.dto.definition.request.sampler.MsHTTPSamplerProxy;
+import io.metersphere.api.dto.definition.request.variable.JsonSchemaItem;
 import io.metersphere.api.dto.definition.response.HttpResponse;
 import io.metersphere.api.dto.scenario.Body;
 import io.metersphere.api.dto.scenario.KeyValue;
@@ -13,12 +14,13 @@ import io.metersphere.base.domain.ApiDefinitionWithBLOBs;
 import io.metersphere.base.domain.ApiModule;
 import io.metersphere.commons.constants.SwaggerParameterType;
 import io.swagger.models.*;
+import io.swagger.models.auth.AuthorizationValue;
 import io.swagger.models.parameters.*;
 import io.swagger.models.properties.*;
 import io.swagger.parser.SwaggerParser;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
-
 import java.io.InputStream;
 import java.util.*;
 
@@ -30,23 +32,68 @@ public class Swagger2Parser extends SwaggerAbstractParser {
     public ApiDefinitionImport parse(InputStream source, ApiTestImportRequest request) {
         Swagger swagger;
         String sourceStr = "";
+        List<AuthorizationValue> auths = setAuths(request);
         if (StringUtils.isNotBlank(request.getSwaggerUrl())) {  //  使用 url 导入 swagger
-            swagger = new SwaggerParser().read(request.getSwaggerUrl());
+            swagger = new SwaggerParser().read(request.getSwaggerUrl(), auths, true);
         } else {
             sourceStr = getApiTestStr(source);  //  导入的二进制文件转换为 String
-            swagger = new SwaggerParser().readWithInfo(sourceStr).getSwagger();
+            swagger = new SwaggerParser().readWithInfo(sourceStr, auths, true).getSwagger();
         }
-
         if (swagger == null || swagger.getSwagger() == null) {  //  不是 2.0 版本，则尝试转换 3.0
             Swagger3Parser swagger3Parser = new Swagger3Parser();
+
             return swagger3Parser.parse(sourceStr, request);
         }
-
         ApiDefinitionImport definitionImport = new ApiDefinitionImport();
         this.projectId = request.getProjectId();
         definitionImport.setData(parseRequests(swagger, request));
         return definitionImport;
     }
+
+    // 鉴权设置
+    private List<AuthorizationValue> setAuths(ApiTestImportRequest request) {
+        List<AuthorizationValue> auths = new ArrayList<>();
+        // 如果有 BaseAuth 参数，base64 编码后转换成 headers
+        if(request.getAuthManager() != null
+                && StringUtils.isNotBlank(request.getAuthManager().getUsername())
+                && StringUtils.isNotBlank(request.getAuthManager().getPassword())
+                && request.getAuthManager().getVerification().equals("Basic Auth")){
+            AuthorizationValue authorizationValue = new AuthorizationValue();
+            authorizationValue.setType("header");
+            authorizationValue.setKeyName("Authorization");
+            String authValue = "Basic " + Base64.getUrlEncoder().encodeToString((request.getAuthManager().getUsername()
+                    + ":" + request.getAuthManager().getPassword()).getBytes());
+            authorizationValue.setValue(authValue);
+            auths.add(authorizationValue);
+        }
+        // 设置 headers
+        if(!CollectionUtils.isEmpty(request.getHeaders())){
+            for(KeyValue keyValue : request.getHeaders()){
+                // 当有 key 时才进行设置
+                if(StringUtils.isNotBlank(keyValue.getName())){
+                    AuthorizationValue authorizationValue = new AuthorizationValue();
+                    authorizationValue.setType("header");
+                    authorizationValue.setKeyName(keyValue.getName());
+                    authorizationValue.setValue(keyValue.getValue());
+                    auths.add(authorizationValue);
+                }
+            }
+        }
+        // 设置 query 参数
+        if(!CollectionUtils.isEmpty(request.getArguments())){
+            for(KeyValue keyValue : request.getArguments()){
+                if(StringUtils.isNotBlank(keyValue.getName())){
+                    AuthorizationValue authorizationValue = new AuthorizationValue();
+                    authorizationValue.setType("query");
+                    authorizationValue.setKeyName(keyValue.getName());
+                    authorizationValue.setValue(keyValue.getValue());
+                    auths.add(authorizationValue);
+                }
+            }
+        }
+        return CollectionUtils.size(auths) == 0 ? null : auths;
+    }
+
 
     private List<ApiDefinitionWithBLOBs> parseRequests(Swagger swagger, ApiTestImportRequest importRequest) {
         Map<String, Path> paths = swagger.getPaths();
@@ -227,23 +274,149 @@ public class Swagger2Parser extends SwaggerAbstractParser {
 
     private void parseRequestBodyParameters(Parameter parameter, Body body) {
         BodyParameter bodyParameter = (BodyParameter) parameter;
-        body.setRaw(parseSchema(bodyParameter.getSchema()));
+        if (body.getType().equals(Body.JSON)) {
+            body.setJsonSchema(parseSchema2JsonSchema(bodyParameter.getSchema()));
+            body.setFormat("JSON-SCHEMA");
+        } else {
+            body.setRaw(parseSchema(bodyParameter.getSchema()));
+        }
     }
+
+    private JsonSchemaItem parseSchema2JsonSchema(Model schema) {
+        if (schema == null) return null;
+        JsonSchemaItem item = new JsonSchemaItem();
+        item.setDescription(schema.getDescription());
+        // 引用模型
+        if (schema instanceof RefModel) {
+            HashSet<String> refSet = new HashSet<>();
+            Model model = getRefModelType(schema, refSet);
+            item.setType("object");
+            item.setProperties(parseSchemaProperties(model.getProperties(), refSet));
+        } else if (schema instanceof ArrayModel) {
+            //模型数组
+            ArrayModel arrayModel = (ArrayModel) schema;
+            HashSet<String> refSet = new HashSet<>();
+            handleArrayItemProperties(item, arrayModel.getItems(), refSet);
+        } else if (schema instanceof ModelImpl) {
+            ModelImpl model = (ModelImpl) schema;
+            Map<String, Property> properties = model.getProperties();
+            if (model != null) {
+                item.setType("object");
+                item.setProperties(parseSchemaProperties(properties, new HashSet<>()));
+            }
+        }
+        if (schema.getExample() != null) {
+            item.getMock().put("mock", schema.getExample());
+        } else {
+            item.getMock().put("mock", "");
+        }
+        return item;
+    }
+
+    private Model getRefModelType(Model schema, HashSet<String> refSet) {
+        String simpleRef;
+        RefModel refModel = (RefModel) schema;
+        String originalRef = refModel.getOriginalRef();
+        if (refModel.getOriginalRef().split("/").length > 3) {
+            simpleRef = originalRef.replace("#/definitions/", "");
+        } else {
+            simpleRef = refModel.getSimpleRef();
+        }
+        refSet.add(simpleRef);
+        return this.definitions.get(simpleRef);
+    }
+
+    private Map<String, JsonSchemaItem> parseSchemaProperties(Map<String, Property> properties, HashSet<String> refSet) {
+        if (MapUtils.isEmpty(properties)) return null;
+
+        Map<String, JsonSchemaItem> JsonSchemaProperties = new LinkedHashMap<>();
+
+        properties.forEach((key, value) -> {
+            JsonSchemaItem item = new JsonSchemaItem();
+            item.setDescription(value.getDescription());
+            if (value instanceof ObjectProperty) {
+                ObjectProperty objectProperty = (ObjectProperty) value;
+                item.setType("object");
+                item.setProperties(parseSchemaProperties(objectProperty.getProperties(), refSet));
+            } else if (value instanceof ArrayProperty) {
+                ArrayProperty arrayProperty = (ArrayProperty) value;
+                handleArrayItemProperties(item, arrayProperty.getItems(), refSet);
+            } else if (value instanceof RefProperty) {
+                item.setType("object");
+                handleRefProperties(item, value, refSet);
+            } else {
+                handleBaseProperties(item, value);
+            }
+            if (value.getExample() != null) {
+                item.getMock().put("mock", value.getExample());
+            } else {
+                item.getMock().put("mock", "");
+            }
+            JsonSchemaProperties.put(key, item);
+        });
+
+        return JsonSchemaProperties;
+    }
+
+    private void handleArrayItemProperties(JsonSchemaItem item, Property value, HashSet<String> refSet) {
+        if (value == null) return;
+        item.setType("array");
+        JsonSchemaItem subItem = new JsonSchemaItem("object");
+        if (value instanceof RefProperty) {
+            subItem.setType("object");
+            handleRefProperties(subItem, value, refSet);
+        } else if (value instanceof ObjectProperty) {
+            subItem.setType("object");
+            subItem.setProperties(parseSchemaProperties(((ObjectProperty) value).getProperties(), refSet));
+        } else {
+            handleBaseProperties(subItem, value);
+        }
+        item.getItems().add(subItem);
+    }
+
+    private void handleBaseProperties(JsonSchemaItem item, Property value) {
+        if (value instanceof StringProperty || value instanceof DateProperty || value instanceof DateTimeProperty ) {
+            item.setType("string");
+        } else if (value instanceof IntegerProperty) {
+            item.setType("integer");
+        } else if (value instanceof BooleanProperty) {
+            item.setType("boolean");
+        } else if (value instanceof LongProperty || value instanceof FloatProperty
+                || value instanceof DecimalProperty || value instanceof DoubleProperty) {
+            item.setType("number");
+        } else {
+            item.setType("string");
+        }
+    }
+
+    private void handleRefProperties(JsonSchemaItem item, Property value, HashSet<String> refSet) {
+        RefProperty refProperty = (RefProperty) value;
+        String simpleRef = refProperty.getSimpleRef();
+        if (isContainRef(refSet, simpleRef)) {
+            return;
+        }
+        Model model = this.definitions.get(simpleRef);
+        if (model != null) {
+            item.setProperties(parseSchemaProperties(model.getProperties(), refSet));
+        }
+    }
+
+    private boolean isContainRef(HashSet<String> refSet, String ref) {
+        if (refSet.contains(ref)) {
+            //避免嵌套死循环
+            return true;
+        } else {
+            refSet.add(ref);
+            return false;
+        }
+    }
+
 
     private String parseSchema(Model schema) {
         // 引用模型
         if (schema instanceof RefModel) {
-            String simpleRef = "";
-            RefModel refModel = (RefModel) schema;
-            String originalRef = refModel.getOriginalRef();
-            if (refModel.getOriginalRef().split("/").length > 3) {
-                simpleRef = originalRef.replace("#/definitions/", "");
-            } else {
-                simpleRef = refModel.getSimpleRef();
-            }
-            Model model = this.definitions.get(simpleRef);
             HashSet<String> refSet = new HashSet<>();
-            refSet.add(simpleRef);
+            Model model = getRefModelType(schema, refSet);
             if (model != null) {
                 JSONObject bodyParameters = getBodyParameters(model.getProperties(), refSet);
                 return bodyParameters.toJSONString();

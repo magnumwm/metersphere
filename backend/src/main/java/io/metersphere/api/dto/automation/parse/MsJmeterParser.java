@@ -102,17 +102,17 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             jmterHashTree(testPlan, scenario);
             this.projectId = request.getProjectId();
             ScenarioImport scenarioImport = new ScenarioImport();
-            scenarioImport.setData(paseObj(scenario, request));
+            scenarioImport.setData(parseObj(scenario, request));
             scenarioImport.setProjectId(request.getProjectId());
             return scenarioImport;
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
             MSException.throwException("当前JMX版本不兼容");
         }
         return null;
     }
 
-    private List<ApiScenarioWithBLOBs> paseObj(MsScenario msScenario, ApiTestImportRequest request) {
+    private List<ApiScenarioWithBLOBs> parseObj(MsScenario msScenario, ApiTestImportRequest request) {
         List<ApiScenarioWithBLOBs> scenarioWithBLOBsList = new ArrayList<>();
         ApiScenarioWithBLOBs scenarioWithBLOBs = new ApiScenarioWithBLOBs();
         ApiScenarioModule selectModule = null;
@@ -175,7 +175,6 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
         if (!path.startsWith("http://") && !path.startsWith("https://")) {
             String domain = source.getDomain();
             String protocol = source.getProtocol();
-            String method = source.getMethod();
             StringBuilder pathAndQuery = new StringBuilder(100);
             if ("file".equalsIgnoreCase(protocol)) {
                 domain = null;
@@ -184,18 +183,6 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             }
 
             pathAndQuery.append(path);
-            if ("GET".equals(method) || "DELETE".equals(method) || "OPTIONS".equals(method)) {
-                String queryString = source.getQueryString(source.getContentEncoding());
-                if (queryString.length() > 0) {
-                    if (path.contains("?")) {
-                        pathAndQuery.append("&");
-                    } else {
-                        pathAndQuery.append("?");
-                    }
-
-                    pathAndQuery.append(queryString);
-                }
-            }
             String portAsString = source.getPropertyAsString("HTTPSampler.port");
             return this.isProtocolDefaultPort(source) ? new URL(protocol, domain, pathAndQuery.toString()).toExternalForm() : this.url(protocol, domain, portAsString, pathAndQuery.toString());
         } else {
@@ -211,6 +198,44 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             }
         }
         return null;
+    }
+
+    private static String truncateUrlPage(String strURL) {
+        String strAllParam = null;
+        if (StringUtils.isNotEmpty(strURL)) {
+            String[] arrSplit = strURL.split("[?]");
+            if (strURL.length() > 1) {
+                if (arrSplit.length > 1) {
+                    if (arrSplit[1] != null) {
+                        strAllParam = arrSplit[1];
+                    }
+                }
+            }
+        }
+        return strAllParam;
+    }
+
+    public static Map<String, String> parseURLParam(String URL) {
+        Map<String, String> mapRequest = new LinkedHashMap<>();
+        String strUrlParam = truncateUrlPage(URL);
+        if (StringUtils.isEmpty(strUrlParam)) {
+            return mapRequest;
+        }
+        //每个键值为一组
+        String[] arrSplit = strUrlParam.split("[&]");
+        for (String strSplit : arrSplit) {
+            String[] arrSplitEqual = strSplit.split("[=]");
+            //解析出键值
+            if (arrSplitEqual.length > 1) {
+                mapRequest.put(arrSplitEqual[0], arrSplitEqual[1]);
+            } else {
+                if (StringUtils.isNotEmpty(arrSplitEqual[0])) {
+                    //只有参数没有值，不加入
+                    mapRequest.put(arrSplitEqual[0], "");
+                }
+            }
+        }
+        return mapRequest;
     }
 
     private void convertHttpSampler(MsHTTPSamplerProxy samplerProxy, Object key) {
@@ -303,9 +328,9 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
                 }
                 samplerProxy.getBody().initBinary();
             }
-            // samplerProxy.setPath(source.getPath());
             samplerProxy.setMethod(source.getMethod());
-            if (this.getUrl(source) != null) {
+            URL url = source.getUrl();
+            if (url != null) {
                 samplerProxy.setUrl(this.getUrl(source));
                 samplerProxy.setPath(null);
             }
@@ -315,7 +340,7 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             body.getBinary().add(new KeyValue());
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
     }
 
@@ -530,7 +555,11 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             RegexExtractor regexExtractor = (RegexExtractor) key;
             if (regexExtractor.useRequestHeaders()) {
                 regex.setUseHeaders("request_headers");
-            } else if (regexExtractor.useBody()) {
+            }
+            if (regexExtractor.useHeaders()) {
+                regex.setUseHeaders("true");
+            }
+            if (regexExtractor.useBody()) {
                 regex.setUseHeaders("false");
             } else if (regexExtractor.useUnescapedBody()) {
                 regex.setUseHeaders("unescaped");
@@ -641,7 +670,7 @@ public class MsJmeterParser extends ApiImportAbstractParser<ScenarioImport> {
             SaveService.saveElement(obj, baos);
             return baos.toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
             LogUtil.warn("HashTree error, can't log jmx scenarioDefinition");
         }
         return null;

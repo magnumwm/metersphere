@@ -23,7 +23,7 @@ export default {
     return {
       result: {},
       loading: false,
-      runId: "",
+      requestResult: {},
       reqNumber: 0,
       websocket: {}
     }
@@ -47,15 +47,36 @@ export default {
         protocol = "wss://";
       }
       let runMode = this.debug ? "debug" : "run";
-      const uri = protocol + window.location.host + "/api/definition/run/report/" + this.runId + "/" + runMode;
+      const uri = protocol + window.location.host + "/api/definition/run/report/" + this.requestResult.reportId + "/" + runMode;
       this.websocket = new WebSocket(uri);
-      this.websocket.onmessage = this.onMessage;
+      this.websocket.onmessage = this.onRunMessage;
     },
-    onMessage(e) {
+    onRunMessage(e) {
       if (e.data) {
         let data = JSON.parse(e.data);
         this.websocket.close();
         this.$emit('runRefresh', data);
+      }
+    },
+    debugSocket() {
+      let protocol = "ws://";
+      if (window.location.protocol === 'https:') {
+        protocol = "wss://";
+      }
+      const uri = protocol + window.location.host + "/ws/" + this.reportId;
+      this.websocket = new WebSocket(uri);
+      this.websocket.onmessage = this.onDebugMessage;
+    },
+    onDebugMessage(e) {
+      if (e.data && e.data.startsWith("result_")) {
+        try {
+          let data = e.data.substring(7);
+          this.websocket.close();
+          this.$emit('runRefresh', JSON.parse(data));
+        } catch (e) {
+          this.websocket.close();
+          this.$emit('runRefresh', "");
+        }
       }
     },
     sort(stepArray) {
@@ -63,6 +84,9 @@ export default {
         for (let i in stepArray) {
           if (!stepArray[i].clazzName) {
             stepArray[i].clazzName = TYPE_TO_C.get(stepArray[i].type);
+          }
+          if (stepArray[i].type === "Assertions" && !stepArray[i].document) {
+            stepArray[i].document = {type: "JSON", data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}};
           }
           if (stepArray[i] && stepArray[i].authManager && !stepArray[i].authManager.clazzName) {
             stepArray[i].authManager.clazzName = TYPE_TO_C.get(stepArray[i].authManager.type);
@@ -114,8 +138,12 @@ export default {
         url = "/api/definition/run";
       }
       this.$fileUpload(url, null, bodyFiles, reqObj, response => {
-        this.runId = response.data;
-        this.initWebSocket();
+        this.requestResult = response.data;
+        if (this.debug) {
+          this.debugSocket();
+        } else {
+          this.initWebSocket();
+        }
         this.$emit('autoCheckStatus');  //   执行结束后，自动更新计划状态
       }, error => {
         this.$emit('errorRefresh', {});

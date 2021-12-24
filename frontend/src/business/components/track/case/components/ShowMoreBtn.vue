@@ -1,5 +1,6 @@
 <template>
   <div v-if="isShow">
+<!--  <div :style="isShow? {} : {display: 'none'}">-->
     <el-dropdown placement="bottom" trigger="click" size="medium">
       <div @click.stop class="show-more-btn">
         <el-tooltip popper-class="batch-popper" :value="true && !hasShowed" effect="dark" :content="$t('test_track.case.batch_operate')"
@@ -51,6 +52,14 @@ import {hasLicense, hasPermissions} from "@/common/js/utils";
         }
       },
       isDisable(item) {
+        if (item.isDisable) {
+          if (item.isDisable instanceof Function) {
+            console.log(item.isDisable());
+            return item.isDisable();
+          } else {
+            return item.isDisable;
+          }
+        }
         if (item.permissions && item.permissions.length > 0) {
           return !hasPermissions(...item.permissions);
         }

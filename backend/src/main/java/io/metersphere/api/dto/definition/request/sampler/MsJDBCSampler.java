@@ -7,23 +7,24 @@ import com.alibaba.fastjson.annotation.JSONType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.metersphere.api.dto.definition.parse.JMeterScriptUtil;
 import io.metersphere.api.dto.definition.request.ElementUtil;
 import io.metersphere.api.dto.definition.request.ParameterConfig;
 import io.metersphere.api.dto.scenario.DatabaseConfig;
 import io.metersphere.api.dto.scenario.KeyValue;
 import io.metersphere.api.dto.scenario.environment.EnvironmentConfig;
+import io.metersphere.api.dto.scenario.environment.GlobalScriptFilterRequest;
 import io.metersphere.api.service.ApiDefinitionService;
 import io.metersphere.api.service.ApiTestCaseService;
 import io.metersphere.api.service.ApiTestEnvironmentService;
 import io.metersphere.base.domain.ApiDefinitionWithBLOBs;
 import io.metersphere.base.domain.ApiTestCaseWithBLOBs;
 import io.metersphere.base.domain.ApiTestEnvironmentWithBLOBs;
-import io.metersphere.commons.constants.DelimiterConstants;
 import io.metersphere.commons.constants.MsTestElementConstants;
-import io.metersphere.commons.constants.RunModeConstants;
 import io.metersphere.commons.exception.MSException;
 import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.commons.utils.LogUtil;
+import io.metersphere.constants.RunModeConstants;
 import io.metersphere.plugin.core.MsParameter;
 import io.metersphere.plugin.core.MsTestElement;
 import lombok.Data;
@@ -79,14 +80,14 @@ public class MsJDBCSampler extends MsTestElement {
     public void toHashTree(HashTree tree, List<MsTestElement> hashTree, MsParameter msParameter) {
         ParameterConfig config = (ParameterConfig) msParameter;
         // 非导出操作，且不是启用状态则跳过执行
-        if (!config.isOperating() && !this.isEnable()) {
+        if (config != null && !config.isOperating() && !this.isEnable()) {
             return;
         }
         if (this.getReferenced() != null && MsTestElementConstants.REF.name().equals(this.getReferenced())) {
             this.setRefElement();
             hashTree = this.getHashTree();
         }
-        if (config.getConfig() == null) {
+        if (config != null && config.getConfig() == null) {
             // 单独接口执行
             this.setProjectId(config.getProjectId());
             config.setConfig(ElementUtil.getEnvironmentConfig(StringUtils.isNotEmpty(useEnvironment) ? useEnvironment : environmentId, this.getProjectId(), this.isMockEnvironment()));
@@ -147,41 +148,52 @@ public class MsJDBCSampler extends MsTestElement {
         if (arguments != null) {
             tree.add(arguments);
         }
+        // 环境通用请求头
+        Arguments envArguments = getConfigArguments(config);
+        if (envArguments != null) {
+            tree.add(envArguments);
+        }
 
-//        MsJSR223PreProcessor preProcessor = null;
-//        MsJSR223PostProcessor postProcessor = null;
-//        if(envConfig != null){
-//            preProcessor = envConfig.getPreProcessor();
-//            postProcessor = envConfig.getPostProcessor();
-//        }
-//
-//        //增加全局前后至脚本
-//        if(preProcessor != null){
-//            if (preProcessor.getEnvironmentId() == null) {
-//                if (this.getEnvironmentId() == null) {
-//                    preProcessor.setEnvironmentId(useEnvironment);
-//                } else {
-//                    preProcessor.setEnvironmentId(this.getEnvironmentId());
-//                }
-//            }
-//            preProcessor.toHashTree(samplerHashTree, preProcessor.getHashTree(), config);
-//        }
-//        if(postProcessor != null){
-//            if (postProcessor.getEnvironmentId() == null) {
-//                if (this.getEnvironmentId() == null) {
-//                    postProcessor.setEnvironmentId(useEnvironment);
-//                } else {
-//                    postProcessor.setEnvironmentId(this.getEnvironmentId());
-//                }
-//            }
-//            postProcessor.toHashTree(samplerHashTree, postProcessor.getHashTree(), config);
-//        }
+        //处理全局前后置脚本(步骤内)
+        String enviromentId = this.getEnvironmentId();
+        if (enviromentId == null) {
+            enviromentId = this.useEnvironment;
+        }
+        //根据配置将脚本放置在私有脚本之前
+        JMeterScriptUtil.setScript(envConfig, samplerHashTree, GlobalScriptFilterRequest.JDBC.name(), enviromentId, config, false);
 
         if (CollectionUtils.isNotEmpty(hashTree)) {
             hashTree.forEach(el -> {
                 el.toHashTree(samplerHashTree, el.getHashTree(), config);
             });
         }
+        //根据配置将脚本放置在私有脚本之后
+        JMeterScriptUtil.setScript(envConfig, samplerHashTree, GlobalScriptFilterRequest.JDBC.name(), enviromentId, config, true);
+
+    }
+
+    /**
+     * 环境通用变量
+     */
+    private Arguments getConfigArguments(ParameterConfig config) {
+        Arguments arguments = new Arguments();
+        arguments.setEnabled(true);
+        arguments.setName(StringUtils.isNotEmpty(this.getName()) ? this.getName() : "Arguments");
+        arguments.setProperty(TestElement.TEST_CLASS, Arguments.class.getName());
+        arguments.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("ArgumentsPanel"));
+        // 环境通用变量
+        if (config.isEffective(this.getProjectId()) && config.getConfig().get(this.getProjectId()).getCommonConfig() != null
+                && CollectionUtils.isNotEmpty(config.getConfig().get(this.getProjectId()).getCommonConfig().getVariables())) {
+            config.getConfig().get(this.getProjectId()).getCommonConfig().getVariables().stream().filter(KeyValue::isValid).filter(KeyValue::isEnable).forEach(keyValue ->
+                    arguments.addArgument(keyValue.getName(), keyValue.getValue(), "=")
+            );
+            // 清空变量，防止重复添加
+            config.getConfig().get(this.getProjectId()).getCommonConfig().getVariables().clear();
+        }
+        if (arguments.getArguments() != null && arguments.getArguments().size() > 0) {
+            return arguments;
+        }
+        return null;
     }
 
     private boolean isDataSource(List<DatabaseConfig> databaseConfigs) {
@@ -230,7 +242,11 @@ public class MsJDBCSampler extends MsTestElement {
                 }
             }
             if (proxy != null) {
-                this.setHashTree(proxy.getHashTree());
+                if (StringUtils.equals(this.getRefType(), "CASE")) {
+                    ElementUtil.mergeHashTree(this, proxy.getHashTree());
+                } else {
+                    this.setHashTree(proxy.getHashTree());
+                }
                 this.setDataSource(proxy.getDataSource());
                 this.setDataSourceId(proxy.getDataSourceId());
                 this.setQuery(proxy.getQuery());
@@ -282,10 +298,6 @@ public class MsJDBCSampler extends MsTestElement {
         JDBCSampler sampler = new JDBCSampler();
         sampler.setEnabled(this.isEnable());
         sampler.setName(this.getName());
-        String name = ElementUtil.getParentName(this.getParent());
-        if (StringUtils.isNotEmpty(name) && !config.isOperating()) {
-            sampler.setName(this.getName() + DelimiterConstants.SEPARATOR.toString() + name);
-        }
         sampler.setProperty(TestElement.TEST_CLASS, JDBCSampler.class.getName());
         sampler.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("TestBeanGUI"));
         sampler.setProperty("MS-ID", this.getId());

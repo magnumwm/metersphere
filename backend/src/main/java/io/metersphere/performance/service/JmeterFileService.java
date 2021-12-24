@@ -9,7 +9,6 @@ import io.metersphere.commons.utils.LogUtil;
 import io.metersphere.performance.engine.EngineContext;
 import io.metersphere.performance.engine.EngineFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.io.ByteArrayOutputStream;
@@ -17,11 +16,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+
+// 非事务运行
 @Service
-@Transactional(rollbackFor = Exception.class)
 public class JmeterFileService {
     @Resource
     private ExtLoadTestReportMapper extLoadTestReportMapper;
@@ -31,6 +32,15 @@ public class JmeterFileService {
     public byte[] downloadZip(String reportId, double[] ratios, int resourceIndex) {
         try {
             LoadTestReportWithBLOBs loadTestReport = loadTestReportMapper.selectByPrimaryKey(reportId);
+            int wait = 0;
+            while (loadTestReport == null) {
+                if (wait > 120_000) {
+                    break;
+                }
+                TimeUnit.MILLISECONDS.sleep(200);
+                wait += 200;
+                loadTestReport = loadTestReportMapper.selectByPrimaryKey(reportId);
+            }
             if (loadTestReport == null) {
                 MSException.throwException("测试报告不存在或还没产生");
             }

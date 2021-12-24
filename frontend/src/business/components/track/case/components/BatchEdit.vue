@@ -12,13 +12,23 @@
       <el-form :model="form" label-position="right" label-width="150px" size="medium" ref="form" :rules="rules">
         <el-form-item :label="$t('test_track.case.batch_update', [size])" prop="type">
           <el-select v-model="form.type" style="width: 80%" @change="changeType">
-            <el-option v-for="(type, index) in typeArr" :key="index" :value="type.id" :label="type.name"/>
+            <el-option v-for="(type, index) in typeArr" :key="index" :value="type.custom ? type.custom : type.id" :label="type.name"/>
           </el-select>
         </el-form-item>
         <el-form-item  v-if="form.type === 'projectEnv'" :label="$t('test_track.case.updated_attr_value')">
-          <env-popover :env-map="projectEnvMap" :project-ids="projectIds" @setProjectEnvMap="setProjectEnvMap"
+          <env-popover :env-map="projectEnvMap"
+                       :project-ids="projectIds"
+                       @setProjectEnvMap="setProjectEnvMap"
                        :show-config-button-with-out-permission="showConfigButtonWithOutPermission"
-                       :project-list="projectList" ref="envPopover"/>
+                       :project-list="projectList"
+                       :environment-type.sync="environmentType"
+                       :group-id="envGroupId"
+                       :is-scenario="false"
+                       @setEnvGroup="setEnvGroup"
+                       ref="envPopover"/>
+        </el-form-item>
+        <el-form-item v-else-if="fieldType === 'custom'" :label="$t('test_track.case.updated_attr_value')">
+          <custom-filed-component :data="customField" prop="defaultValue"/>
         </el-form-item>
         <el-form-item v-else :label="$t('test_track.case.updated_attr_value')" prop="value">
           <el-select v-model="form.value" style="width: 80%" :filterable="filterable">
@@ -42,10 +52,13 @@
 <script>
   import MsDialogFooter from "../../../common/components/MsDialogFooter";
   import {listenGoBack, removeGoBackListener} from "@/common/js/utils";
-  import EnvPopover from "@/business/components/track/common/EnvPopover";
+  import EnvPopover from "@/business/components/api/automation/scenario/EnvPopover";
+  import {ENV_TYPE} from "@/common/js/constants";
+  import CustomFiledComponent from "@/business/components/settings/workspace/template/CustomFiledComponent";
   export default {
     name: "BatchEdit",
     components: {
+      CustomFiledComponent,
       EnvPopover,
       MsDialogFooter
     },
@@ -78,20 +91,35 @@
         projectEnvMap: new Map(),
         map: new Map(),
         isScenario: '',
-        result: {}
+        result: {},
+        environmentType: ENV_TYPE.JSON,
+        envGroupId: "",
+        customField: {},
+        fieldType: ""
+      }
+    },
+    computed: {
+      ENV_TYPE() {
+        return ENV_TYPE;
       }
     },
     methods: {
       submit(form) {
-        this.$refs[form].validate((valid) => {
+        this.$refs[form].validate(async (valid) => {
           if (valid) {
             this.form.projectEnvMap = this.projectEnvMap;
             if (this.form.type === 'projectEnv') {
-              if (!this.$refs.envPopover.checkEnv()) {
+              if (! await this.$refs.envPopover.checkEnv()) {
                 return false;
               }
               this.form.map = this.map;
             }
+            // 处理自定义字段
+            if (this.form.type.startsWith("custom")) {
+              this.form.customField = this.customField;
+            }
+            this.form.environmentType = this.environmentType;
+            this.form.envGroupId = this.envGroupId;
             this.$emit("batchEdit", this.form);
             this.dialogVisible = false;
           } else {
@@ -101,6 +129,9 @@
       },
       setProjectEnvMap(projectEnvMap) {
         this.projectEnvMap = projectEnvMap;
+      },
+      setEnvGroup(id) {
+        this.envGroupId = id;
       },
       open(size) {
         this.dialogVisible = true;
@@ -130,9 +161,25 @@
       handleClose() {
         this.form = {};
         this.options = [];
+        this.fieldType = "";
         removeGoBackListener(this.handleClose);
       },
+      _handleCustomField(val) {
+        // custom template field id
+        let id = val.slice(6);
+        this.fieldType = "custom";
+        this.$get("/custom/field/template/" + id, res => {
+          this.customField = res ? res.data : {};
+          this.customField.options = JSON.parse(this.customField.options);
+          if (this.customField.type === 'checkbox' || this.customField.type === 'multipleMember') {
+            this.customField.defaultValue = [];
+          }
+        })
+      },
       changeType(val) {
+        if (val && val.startsWith("custom")) {
+          this._handleCustomField(val);
+        }
         this.$set(this.form, "value", "");
         if (val === 'projectEnv' && this.isScenario !== '') {
           this.projectIds.clear();

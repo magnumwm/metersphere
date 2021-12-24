@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.Resource;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,7 +24,7 @@ public class MailNoticeSender extends AbstractNoticeSender {
     @Resource
     private MailService mailService;
 
-    private void sendMail(String context, NoticeModel noticeModel) throws MessagingException {
+    public void sendMail(String context, NoticeModel noticeModel) throws MessagingException {
         LogUtil.debug("发送邮件开始 ");
         JavaMailSenderImpl javaMailSender = mailService.getMailSender();
         MimeMessage mimeMessage = javaMailSender.createMimeMessage();
@@ -55,6 +56,55 @@ public class MailNoticeSender extends AbstractNoticeSender {
         LogUtil.info("收件人地址: {}", userIds);
         helper.setText(context, true);
         helper.setTo(users);
+        javaMailSender.send(mimeMessage);
+    }
+
+    public void sendExternalMail(String context, NoticeModel noticeModel) throws MessagingException {
+        LogUtil.debug("发送邮件开始 ");
+        JavaMailSenderImpl javaMailSender = mailService.getMailSender();
+        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
+        if (javaMailSender.getUsername().contains("@")) {
+            helper.setFrom(javaMailSender.getUsername());
+        } else {
+            String mailHost = javaMailSender.getHost();
+            String domainName = mailHost.substring(mailHost.indexOf(".") + 1, mailHost.length());
+            helper.setFrom(javaMailSender.getUsername() + "@" + domainName);
+        }
+        LogUtil.debug("发件人地址" + javaMailSender.getUsername());
+        LogUtil.debug("helper" + helper);
+        helper.setSubject(noticeModel.getSubject());
+        List<String> userIds = noticeModel.getReceivers().stream()
+                .map(Receiver::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(userIds)) {
+            return;
+        }
+
+        List<String> recipients = new ArrayList<>();
+        if(CollectionUtils.isNotEmpty(noticeModel.getRecipients())){
+            recipients = noticeModel.getRecipients().stream()
+                    .map(Receiver::getUserId)
+                    .distinct()
+                    .collect(Collectors.toList());
+        }
+
+        String[] users = userIds.stream()
+                .distinct()
+                .toArray(String[]::new);
+
+        LogUtil.info("收件人地址: {}", userIds);
+        helper.setText(context, true);
+        helper.setTo(users);
+
+        if(CollectionUtils.isNotEmpty(recipients)){
+            String[] ccArr = recipients.stream()
+                    .distinct()
+                    .toArray(String[]::new);
+            helper.setCc(ccArr);
+        }
+
         javaMailSender.send(mimeMessage);
     }
 

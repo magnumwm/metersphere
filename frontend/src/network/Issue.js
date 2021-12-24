@@ -1,7 +1,10 @@
 import {post, get} from "@/common/js/ajax";
 import {getPageDate} from "@/common/js/tableUtils";
-import {getCurrentProjectID} from "@/common/js/utils";
-import {baseGet} from "@/network/base-network";
+import {getCurrentProjectID, hasLicense} from "@/common/js/utils";
+import {baseGet, basePost} from "@/network/base-network";
+import {getCurrentProject} from "@/network/project";
+import {JIRA, LOCAL} from "@/common/js/constants";
+import {getIssueTemplate} from "@/network/custom-field-template";
 
 export function buildIssues(page) {
   let data = page.data;
@@ -10,9 +13,6 @@ export function buildIssues(page) {
       if (data[i].customFields) {
         data[i].customFields = JSON.parse(data[i].customFields);
       }
-      // if (data[i].platform !== 'Local') {
-      //   page.result = buildPlatformIssue(data[i]);
-      // }
     }
   }
 }
@@ -26,11 +26,28 @@ export function getIssues(page) {
 
 export function getIssuesByCaseId(caseId, page) {
   if (caseId) {
-    return get('issues/get/' + caseId, (response) => {
+    return get('issues/get/case/' + caseId, (response) => {
       page.data = response.data;
       buildIssues(page);
     });
   }
+}
+
+export function getIssuesById(id, callback) {
+  return id ? baseGet('/issues/get/' + id, callback) : {};
+}
+
+export function getIssuesListById(id,projectId,workspaceId,callback) {
+  let condition ={
+    id:id,
+    projectId : projectId,
+    workspaceId: workspaceId
+  };
+  return post('issues/list/' + 1 + '/' + 10, condition, (response) => {
+    if (callback) {
+      callback(response.data.listObject[0]);
+    }
+  });
 }
 
 export function getIssuesByPlanId(planId, callback) {
@@ -74,11 +91,63 @@ export function getRelateIssues(page) {
 }
 
 export function syncIssues(success) {
-  return get('issues/sync/' + getCurrentProjectID(), (response) => {
+  let uri = 'issues/sync/';
+  if (hasLicense()) {
+    uri = 'xpack/issue/sync/';
+  }
+  return get(uri + getCurrentProjectID(), (response) => {
     if (success) {
       success(response);
     }
   });
 }
 
+export function deleteIssueRelate(param, callback) {
+  return basePost('/issues/delete/relate', param, callback);
+}
 
+export function getIssueThirdPartTemplate() {
+  return new Promise(resolve => {
+    baseGet('/issues/thirdpart/template/' + getCurrentProjectID(), (data) => {
+      let template = data;
+      if (template.customFields) {
+        template.customFields.forEach(item => {
+          if (item.options) {
+            item.options = JSON.parse(item.options);
+          }
+        });
+      }
+      resolve(template);
+    })
+  });
+}
+
+export function getIssuePartTemplateWithProject(callback) {
+  getCurrentProject((project) => {
+    let currentProject = project;
+    if (enableThirdPartTemplate(currentProject)) {
+      getIssueThirdPartTemplate()
+        .then((template) => {
+          if (callback)
+              callback(template, currentProject);
+        });
+    } else {
+      getIssueTemplate()
+        .then((template) => {
+          if (callback)
+            callback(template, currentProject);
+        });
+    }
+  });
+}
+
+export function enableThirdPartTemplate(currentProject) {
+  return currentProject && currentProject.thirdPartTemplate && currentProject.platform === JIRA;
+}
+
+export function isThirdPartEnable(callback) {
+  getCurrentProject((project) => {
+    if (callback)
+      callback(project.platform !== LOCAL);
+  });
+}

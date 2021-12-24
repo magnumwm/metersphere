@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSON;
 import io.metersphere.api.dto.DeleteAPITestRequest;
 import io.metersphere.api.dto.QueryAPITestRequest;
 import io.metersphere.api.service.APITestService;
-import io.metersphere.api.service.ApiAutomationService;
 import io.metersphere.api.service.ApiTestDelService;
 import io.metersphere.api.service.ApiTestEnvironmentService;
 import io.metersphere.api.tcp.TCPPool;
@@ -13,9 +12,11 @@ import io.metersphere.base.mapper.*;
 import io.metersphere.base.mapper.ext.ExtProjectMapper;
 import io.metersphere.base.mapper.ext.ExtUserGroupMapper;
 import io.metersphere.base.mapper.ext.ExtUserMapper;
+import io.metersphere.commons.constants.IssuesManagePlatform;
 import io.metersphere.commons.constants.UserGroupConstants;
 import io.metersphere.commons.exception.MSException;
 import io.metersphere.commons.utils.CommonBeanFactory;
+import io.metersphere.commons.utils.LogUtil;
 import io.metersphere.commons.utils.ServiceUtils;
 import io.metersphere.commons.utils.SessionUtils;
 import io.metersphere.controller.request.ProjectRequest;
@@ -91,6 +92,8 @@ public class ProjectService {
     private ApiTestDelService apiTestDelService;
     @Value("${tcp.mock.port}")
     private String tcpMockPorts;
+    @Resource
+    private EnvironmentGroupProjectService environmentGroupProjectService;
 
     public Project addProject(Project project) {
         if (StringUtils.isBlank(project.getName())) {
@@ -102,6 +105,9 @@ public class ProjectService {
                 .andNameEqualTo(project.getName());
         if (projectMapper.countByExample(example) > 0) {
             MSException.throwException(Translator.get("project_name_already_exists"));
+        }
+        if (StringUtils.isBlank(project.getPlatform())) {
+            project.setPlatform(IssuesManagePlatform.Local.name());
         }
         project.setId(UUID.randomUUID().toString());
 
@@ -200,6 +206,8 @@ public class ProjectService {
         } catch (Exception e) {
         }
 
+        // 删除环境组下的项目相关
+        environmentGroupProjectService.deleteRelateProject(projectId);
 
         // delete project
         projectMapper.deleteByPrimaryKey(projectId);
@@ -214,21 +222,30 @@ public class ProjectService {
         userGroupMapper.deleteByExample(userGroupExample);
     }
 
-    public void updateIssueTemplate(String originId, String templateId) {
+    public void updateIssueTemplate(String originId, String templateId, String workspaceId) {
         Project project = new Project();
         project.setIssueTemplateId(templateId);
         ProjectExample example = new ProjectExample();
         example.createCriteria()
-                .andIssueTemplateIdEqualTo(originId);
+                .andIssueTemplateIdEqualTo(originId)
+                .andWorkspaceIdEqualTo(workspaceId);
         projectMapper.updateByExampleSelective(project, example);
     }
 
-    public void updateCaseTemplate(String originId, String templateId) {
+    /**
+     * 把原来为系统模板的项目模板设置成新的模板
+     * 只设置改工作空间下的
+     * @param originId
+     * @param templateId
+     * @param workspaceId
+     */
+    public void updateCaseTemplate(String originId, String templateId, String workspaceId) {
         Project project = new Project();
         project.setCaseTemplateId(templateId);
         ProjectExample example = new ProjectExample();
         example.createCriteria()
-                .andCaseTemplateIdEqualTo(originId);
+                .andCaseTemplateIdEqualTo(originId)
+                .andWorkspaceIdEqualTo(workspaceId);
         projectMapper.updateByExampleSelective(project, example);
     }
 
@@ -673,7 +690,7 @@ public class ProjectService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
     }
 
@@ -731,5 +748,9 @@ public class ProjectService {
 
     public long getProjectMemberSize(String id) {
         return extProjectMapper.getProjectMemberSize(id);
+    }
+
+    public int getProjectBugSize(String projectId) {
+        return extProjectMapper.getProjectPlanBugSize(projectId);
     }
 }

@@ -1,5 +1,6 @@
 package io.metersphere.track.controller;
 
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
@@ -74,6 +75,11 @@ public class TestPlanController {
         return testPlanService.listTestAllPlan(request);
     }
 
+    @GetMapping("/get/stage/option/{workspaceId}")
+    public JSONArray getStageOption(@PathVariable("workspaceId") String workspaceId) {
+        return testPlanService.getStageOption(workspaceId);
+    }
+
     @GetMapping("recent/{count}/{id}")
     public List<TestPlan> recentTestPlans(@PathVariable("count") int count, @PathVariable("id") String projectId) {
         PageHelper.startPage(1, count, true);
@@ -98,7 +104,7 @@ public class TestPlanController {
     @PostMapping("/edit")
     @RequiresPermissions(PermissionConstants.PROJECT_TRACK_PLAN_READ_EDIT)
     @MsAuditLog(module = "track_test_plan", type = OperLogConstants.UPDATE, beforeEvent = "#msClass.getLogDetails(#testPlanDTO.id)", content = "#msClass.getLogDetails(#testPlanDTO.id)", msClass = TestPlanService.class)
-    @SendNotice(taskType = NoticeConstants.TaskType.TEST_PLAN_TASK, event = NoticeConstants.Event.UPDATE, mailTemplate = "track/TestPlanEnd", subject = "测试计划通知")
+    @SendNotice(taskType = NoticeConstants.TaskType.TEST_PLAN_TASK, event = NoticeConstants.Event.UPDATE, mailTemplate = "track/TestPlanUpdate", subject = "测试计划通知")
     public TestPlan editTestPlan(@RequestBody AddTestPlanRequest testPlanDTO) {
         return testPlanService.editTestPlanWithRequest(testPlanDTO);
     }
@@ -118,10 +124,16 @@ public class TestPlanController {
         testPlanService.editReportConfig(testPlanDTO);
     }
 
+    @PostMapping("/edit/follows/{planId}")
+    @RequiresPermissions(PermissionConstants.PROJECT_TRACK_PLAN_READ_EDIT)
+    public void editTestFollows(@PathVariable String planId,@RequestBody List<String> follows) {
+        testPlanService.editTestFollows(planId,follows);
+    }
+
     @PostMapping("/delete/{testPlanId}")
     @RequiresPermissions(PermissionConstants.PROJECT_TRACK_PLAN_READ_DELETE)
     @MsAuditLog(module = "track_test_plan", type = OperLogConstants.DELETE, beforeEvent = "#msClass.getLogDetails(#testPlanId)", msClass = TestPlanService.class)
-    @SendNotice(taskType = NoticeConstants.TaskType.TEST_PLAN_TASK, target = "#targetClass.getTestPlan(#testPlanId)", targetClass = TestPlanService.class,
+    @SendNotice(taskType = NoticeConstants.TaskType.TEST_PLAN_TASK, target = "#targetClass.get(#testPlanId)", targetClass = TestPlanService.class,
             event = NoticeConstants.Event.DELETE, mailTemplate = "track/TestPlanDelete", subject = "测试计划通知")
     public int deleteTestPlan(@PathVariable String testPlanId) {
         checkPermissionService.checkTestPlanOwner(testPlanId);
@@ -176,6 +188,7 @@ public class TestPlanController {
     }
 
     @PostMapping("/copy/{id}")
+    @SendNotice(taskType = NoticeConstants.TaskType.TEST_PLAN_TASK, event = NoticeConstants.Event.CREATE, mailTemplate = "track/TestPlanStart", subject = "测试计划通知")
     public TestPlan copy(@PathVariable String id) {
         return testPlanService.copy(id);
     }

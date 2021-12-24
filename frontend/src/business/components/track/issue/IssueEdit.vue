@@ -11,7 +11,7 @@
     >
     <template v-slot:default="scope">
       <template-component-edit-header :show-edit="false" :template="{}" prop="title" @cancel="handleClose" @save="save"/>
-      <issue-edit-detail @refresh="$emit('refresh')" @close="handleClose" ref="issueEditDetail"/>
+      <issue-edit-detail @refresh="refresh" @close="handleClose" ref="issueEditDetail"/>
     </template>
   </el-drawer>
 </template>
@@ -29,10 +29,10 @@ export default {
     }
   },
   methods: {
-    open(data) {
+    open(data, type) {
       this.visible = true;
       this.$nextTick(() => {
-        this.$refs.issueEditDetail.open(data);
+          this.$refs.issueEditDetail.open(data, type);
       })
     },
     handleClose() {
@@ -40,6 +40,9 @@ export default {
     },
     save() {
       this.$refs.issueEditDetail.save();
+    },
+    refresh(data) {
+      this.$emit('refresh', data);
     }
   }
 };

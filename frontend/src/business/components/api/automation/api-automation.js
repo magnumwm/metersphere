@@ -99,10 +99,26 @@ export function saveScenario(url, scenario, scenarioDefinition, _this, success) 
       success(response);
     }
   }, error => {
-    _this.$emit('errorRefresh', {});
+    _this.$emit('errorRefresh', error);
   });
 }
 
 export function editApiScenarioCaseOrder(request, callback) {
   return basePost('/api/automation/edit/order', request, callback);
+}
+
+export function savePreciseEnvProjectIds(projectIds, envMap) {
+  if (envMap != null && projectIds != null) {
+    let keys = envMap.keys();
+    for (let key of keys) {
+      if (!projectIds.has(key)) {
+        envMap.delete(key);
+      }
+    }
+    for (let id of projectIds) {
+      if (!envMap.get(id)) {
+        envMap.set(id, "");
+      }
+    }
+  }
 }

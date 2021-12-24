@@ -14,32 +14,21 @@ public class RunModeDataDTO {
     private HashTree hashTree;
     // 测试场景/测试用例
     private String testId;
+
+    private String reportId;
     // 初始化报告
     private APIScenarioReportResult report;
     //
     private String apiCaseId;
 
     private Map<String, String> planEnvMap;
-    public RunModeDataDTO(){
+
+    public RunModeDataDTO() {
 
     }
-    public RunModeDataDTO(String testId, String apiCaseId) {
-        this.testId = testId;
-        this.apiCaseId = apiCaseId;
-    }
 
-    public RunModeDataDTO(HashTree hashTree, String apiCaseId) {
-        this.hashTree = hashTree;
-        this.apiCaseId = apiCaseId;
-    }
-
-    public RunModeDataDTO(String testId, APIScenarioReportResult report) {
-        this.testId = testId;
+    public RunModeDataDTO(APIScenarioReportResult report, String testId) {
         this.report = report;
-    }
-
-    public RunModeDataDTO(HashTree hashTree, APIScenarioReportResult report) {
-        this.hashTree = hashTree;
-        this.report = report;
+        this.testId = testId;
     }
 }

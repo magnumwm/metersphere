@@ -2,6 +2,7 @@ package io.metersphere.commons.json;
 
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.*;
+import io.metersphere.commons.utils.LogUtil;
 import io.metersphere.jmeter.utils.ScriptEngineUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -22,7 +23,7 @@ public class JSONSchemaGenerator {
             JsonObject rootElement = element.getAsJsonObject();
             analyzeRootSchemaElement(rootElement, rootObj);
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
 
     }
@@ -138,7 +139,7 @@ public class JSONSchemaGenerator {
                     try {
                         Number value = object.get("mock").getAsJsonObject().get("mock").getAsNumber();
                         if (value.toString().indexOf(".") == -1) {
-                            concept.put(propertyName, value.intValue());
+                            concept.put(propertyName, value.longValue());
                         } else {
                             concept.put(propertyName, value.floatValue());
                         }
@@ -155,18 +156,29 @@ public class JSONSchemaGenerator {
                 }
                 if (object.has("mock") && object.get("mock").getAsJsonObject() != null && StringUtils.isNotEmpty(object.get("mock").getAsJsonObject().get("mock").getAsString())) {
                     String value = ScriptEngineUtils.buildFunctionCallString(object.get("mock").getAsJsonObject().get("mock").toString());
-                    concept.put(propertyName, value);
+                    try {
+                        if (StringUtils.isNotEmpty(value)) {
+                            if (value.indexOf("\"") != -1) {
+                                value = value.replaceAll("\"", "");
+                            }
+                            concept.put(propertyName, Boolean.valueOf(value));
+                        }
+                    } catch (Exception e) {
+                        concept.put(propertyName, value);
+                    }
                 }
             } else if (propertyObjType.equals("array")) {
                 // 先设置空值
                 List<Object> array = new LinkedList<>();
 
                 JsonArray jsonArray = new JsonArray();
-                if (object.has("items") && object.get("items").isJsonArray()) {
-                    jsonArray = object.get("items").getAsJsonArray();
-                } else {
-                    JsonObject itemsObject = object.get("items").getAsJsonObject();
-                    array.add(itemsObject);
+                if (object.has("items")) {
+                    if(object.get("items").isJsonArray()){
+                        jsonArray = object.get("items").getAsJsonArray();
+                    }else {
+                        JsonObject itemsObject = object.get("items").getAsJsonObject();
+                        array.add(itemsObject);
+                    }
                 }
 
                 for (int i = 0; i < jsonArray.size(); i++) {
@@ -201,7 +213,7 @@ public class JSONSchemaGenerator {
                                 array.add(0);
                             }
                         } else if (itemsObject.has("properties")) {
-                            JSONObject propertyConcept = new JSONObject();
+                            JSONObject propertyConcept = new JSONObject(true);
                             JsonObject propertiesObj = itemsObject.get("properties").getAsJsonObject();
                             for (Entry<String, JsonElement> entry : propertiesObj.entrySet()) {
                                 String propertyKey = entry.getKey();
@@ -220,13 +232,13 @@ public class JSONSchemaGenerator {
                         array.add(itemsObjectArray);
                     }
                 }
-
                 concept.put(propertyName, array);
-
             } else if (propertyObjType.equals("object")) {
                 JSONObject obj = new JSONObject();
                 concept.put(propertyName, obj);
                 analyzeObject(object, obj);
+            } else if (StringUtils.equalsIgnoreCase(propertyObjType,"null")) {
+                concept.put(propertyName, null);
             }
         }
     }
@@ -265,7 +277,7 @@ public class JSONSchemaGenerator {
 
     private static String formerJson(String jsonSchema) {
         try {
-            JSONObject root = new JSONObject();
+            JSONObject root = new JSONObject(true);
             generator(jsonSchema, root);
             // 格式化返回
             Gson gson = new GsonBuilder().serializeNulls().setPrettyPrinting().disableHtmlEscaping().create();

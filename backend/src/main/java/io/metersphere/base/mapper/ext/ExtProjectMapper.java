@@ -33,4 +33,8 @@ public interface ExtProjectMapper {
     Project selectProjectByResourceId(@Param("resourceId") String resourceId);
 
     long getProjectMemberSize(@Param("projectId") String projectId);
+
+    List<Project>getProjectByUserId(@Param("userId")String userId);
+
+    int getProjectPlanBugSize(@Param("projectId") String projectId);
 }

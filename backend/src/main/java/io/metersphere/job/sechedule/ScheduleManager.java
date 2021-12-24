@@ -1,9 +1,7 @@
 package io.metersphere.job.sechedule;
 
 import io.metersphere.base.domain.Schedule;
-import io.metersphere.commons.constants.ScheduleGroup;
 import io.metersphere.commons.utils.LogUtil;
-import org.python.antlr.ast.Str;
 import org.quartz.*;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +9,6 @@ import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Component
 public class ScheduleManager {
@@ -128,14 +125,6 @@ public class ScheduleManager {
                 trigger = (CronTrigger) triggerBuilder.build();// 创建Trigger对象
 
                 scheduler.rescheduleJob(triggerKey, trigger);// 修改一个任务的触发时间
-                /** 方式一 ：调用 rescheduleJob 结束 */
-
-                /** 方式二：先删除，然后在创建一个新的Job */
-                // JobDetail jobDetail = sched.getJobDetail(JobKey.jobKey(jobName, jobGroupName));
-                // Class<? extends Job> jobClass = jobDetail.getJobClass();
-                // removeJob(jobName, jobGroupName, triggerName, triggerGroupName);
-                // addJob(jobName, jobGroupName, triggerName, triggerGroupName, jobClass, cron);
-                /** 方式二 ：先删除，然后在创建一个新的Job */
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -313,7 +302,7 @@ public class ScheduleManager {
                 returnMap.put("groupName", groupName);
             }
         }catch (Exception e){
-            e.printStackTrace();
+            LogUtil.error(e);
         }
 
         return returnMap;

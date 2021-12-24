@@ -29,7 +29,7 @@
           class="ms-api-button"
           ref="environmentSelect"/>
         <!-- 主框架列表 -->
-        <el-tabs v-model="apiDefaultTab" @edit="handleTabRemove" @tab-click="addTab">
+        <el-tabs v-model="apiDefaultTab" @edit="closeConfirm" @tab-click="addTab">
           <el-tab-pane
             name="trash"
             :label="$t('commons.trash')" v-if="trashEnable">
@@ -254,6 +254,7 @@ import MockConfig from "@/business/components/api/definition/components/mock/Moc
 import ApiSchedule from "@/business/components/api/definition/components/import/ApiSchedule";
 import MsEditCompleteContainer from "./components/EditCompleteContainer";
 import MsEnvironmentSelect from "./components/case/MsEnvironmentSelect";
+import {PROJECT_ID} from "@/common/js/constants";
 
 
 export default {
@@ -387,7 +388,6 @@ export default {
       });
     },
     '$route'(to, from) {  //  路由改变时，把接口定义界面中的 ctrl s 保存快捷键监听移除
-      window.location.reload();
       if (to.path.indexOf('/api/definition') === -1) {
         if (this.$refs && this.$refs.apiConfig) {
           this.$refs.apiConfig.forEach(item => {
@@ -398,6 +398,13 @@ export default {
     },
   },
   created() {
+    let projectId = this.$route.params.projectId;
+    if(projectId){
+      sessionStorage.setItem(PROJECT_ID, projectId);
+    }
+    if (this.$route.query.projectId){
+      sessionStorage.setItem(PROJECT_ID, this.$route.query.projectId);
+    }
     this.getEnv();
     // 通知过来的数据跳转到编辑
     if (this.$route.query.caseId) {
@@ -457,7 +464,15 @@ export default {
     },
     addTab(tab) {
       if (tab.name === 'add') {
-        this.handleTabsEdit(this.$t('api_test.definition.request.fast_debug'), "debug");
+        this.result = this.$get('/project/get/' + this.projectId, res => {
+          let projectData = res.data;
+          if (projectData && projectData.apiQuick === 'api') {
+            this.handleTabAdd("ADD");
+          } else {
+            this.handleTabsEdit(this.$t('api_test.definition.request.fast_debug'), "debug");
+          }
+        })
+
       } else if (tab.name === 'trash') {
         if (this.$refs.trashApiList) {
           this.$refs.trashApiList.initTable();
@@ -527,9 +542,57 @@ export default {
     },
     handleTabClose() {
       let tabs = this.apiTabs[0];
-      this.apiTabs = [];
-      this.apiDefaultTab = tabs.name;
-      this.apiTabs.push(tabs);
+      let message = "";
+      let tab = this.apiTabs;
+      delete tab[0];
+      tab.forEach(t => {
+        if (t.api && this.$store.state.apiMap.has(t.api.id) && (this.$store.state.apiMap.get(t.api.id).get("responseChange") === true || this.$store.state.apiMap.get(t.api.id).get("requestChange") === true ||
+          this.$store.state.apiMap.get(t.api.id).get("fromChange") === true)) {
+          message += t.api.name + "，";
+        }
+      })
+      if (message !== "") {
+        this.$alert(this.$t('commons.api') + " [ " + message.substr(0, message.length - 1) + " ] " + this.$t('commons.confirm_info'), '', {
+          confirmButtonText: this.$t('commons.confirm'),
+          cancelButtonText: this.$t('commons.cancel'),
+          callback: (action) => {
+            if (action === 'confirm') {
+              this.$store.state.apiMap.clear();
+              this.apiTabs = [];
+              this.apiDefaultTab = tabs.name;
+              this.apiTabs.push(tabs);
+            }
+          }
+        });
+      } else {
+        this.apiTabs = [];
+        this.apiDefaultTab = tabs.name;
+        this.apiTabs.push(tabs);
+      }
+    },
+    closeConfirm(targetName) {
+      let tab = this.apiTabs;
+      tab.forEach(t => {
+        if (t.name === targetName) {
+          if (t.api && this.$store.state.apiMap.size > 0 && this.$store.state.apiMap.has(t.api.id)) {
+            if (this.$store.state.apiMap.get(t.api.id).get("responseChange") === true || this.$store.state.apiMap.get(t.api.id).get("requestChange") === true ||
+              this.$store.state.apiMap.get(t.api.id).get("fromChange") === true) {
+              this.$alert(this.$t('commons.api') + " [ " + t.api.name + " ] " + this.$t('commons.confirm_info'), '', {
+                confirmButtonText: this.$t('commons.confirm'),
+                cancelButtonText: this.$t('commons.cancel'),
+                callback: (action) => {
+                  if (action === 'confirm') {
+                    this.$store.state.apiMap.delete(t.api.id);
+                    this.handleTabRemove(targetName);
+                  }
+                }
+              });
+            }
+          } else {
+            this.handleTabRemove(targetName);
+          }
+        }
+      })
     },
     handleTabRemove(targetName) {
       let tabs = this.apiTabs;
@@ -598,6 +661,19 @@ export default {
       let routeTestCase = this.$route.params.apiDefinition;
       if (routeTestCase) {
         this.editApi(routeTestCase)
+      }
+      let dataRange = this.$route.params.dataSelectRange;
+      let dataType = this.$route.params.dataType;
+      if(dataRange){
+        let selectParamArr = dataRange.split("edit:");
+        if (selectParamArr.length === 2) {
+          let scenarioId = selectParamArr[1];
+          if(dataType==='api'){
+            this.$get('/api/definition/get/' + scenarioId, (response) => {
+              this.editApi(response.data);
+            });
+          }
+        }
       }
     },
     editApi(row) {
@@ -750,7 +826,6 @@ export default {
 
 /deep/ .el-tabs__header {
   margin: 0 0 0px;
-  width: calc(100% - 200px);
 }
 
 /deep/ .el-card {
@@ -765,7 +840,7 @@ export default {
 
 .ms-api-button {
   position: absolute;
-  top: 92px;
+  top: 86px;
   right: 10px;
   padding: 0;
   background: 0 0;
@@ -774,5 +849,13 @@ export default {
   cursor: pointer;
   margin-right: 10px;
   font-size: 16px;
+  z-index: 1;
+}
+
+/deep/ .el-table__empty-block {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  padding-right: 100%;
 }
 </style>

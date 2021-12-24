@@ -2,6 +2,9 @@ package io.metersphere.api.dto.definition.request.assertions;
 
 import com.alibaba.fastjson.annotation.JSONType;
 import io.metersphere.api.dto.definition.request.ParameterConfig;
+import io.metersphere.api.dto.definition.request.assertions.document.MsAssertionDocument;
+import io.metersphere.api.service.ApiDefinitionService;
+import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.plugin.core.MsParameter;
 import io.metersphere.plugin.core.MsTestElement;
 import lombok.Data;
@@ -27,6 +30,9 @@ public class MsAssertions extends MsTestElement {
     private List<MsAssertionXPath2> xpath2;
     private MsAssertionDuration duration;
     private String type = "Assertions";
+    private MsAssertionDocument document;
+
+    private static final String delimiter = "split==";
 
     @Override
     public void toHashTree(HashTree tree, List<MsTestElement> hashTree, MsParameter msParameter) {
@@ -39,6 +45,27 @@ public class MsAssertions extends MsTestElement {
     }
 
     private void addAssertions(HashTree hashTree) {
+        // 增加JSON文档结构校验
+        if (this.getDocument() != null && this.getDocument().getType().equals("JSON")) {
+            if (StringUtils.isNotEmpty(this.getDocument().getData().getJsonFollowAPI()) && !this.getDocument().getData().getJsonFollowAPI().equals("false")) {
+                ApiDefinitionService apiDefinitionService = CommonBeanFactory.getBean(ApiDefinitionService.class);
+                this.getDocument().getData().setJson(apiDefinitionService.getDocument(this.getDocument().getData().getJsonFollowAPI(), "JSON"));
+            }
+            if (CollectionUtils.isNotEmpty(this.getDocument().getData().getJson())) {
+                this.getDocument().getData().parseJson(hashTree, this.getName());
+            }
+        }
+        // 增加XML文档结构校验
+        if (this.getDocument() != null && this.getDocument().getType().equals("XML") && CollectionUtils.isNotEmpty(this.getDocument().getData().getXml())) {
+            if (StringUtils.isNotEmpty(this.getDocument().getData().getXmlFollowAPI()) && !this.getDocument().getData().getXmlFollowAPI().equals("false")) {
+                ApiDefinitionService apiDefinitionService = CommonBeanFactory.getBean(ApiDefinitionService.class);
+                this.getDocument().getData().setXml(apiDefinitionService.getDocument(this.getDocument().getData().getXmlFollowAPI(), "XML"));
+            }
+            if (CollectionUtils.isNotEmpty(this.getDocument().getData().getXml())) {
+                this.getDocument().getData().parseXml(hashTree, this.getName());
+            }
+        }
+
         if (CollectionUtils.isNotEmpty(this.getRegex())) {
             this.getRegex().stream().filter(MsAssertionRegex::isValid).forEach(assertion ->
                     hashTree.add(responseAssertion(assertion))
@@ -72,9 +99,9 @@ public class MsAssertions extends MsTestElement {
         ResponseAssertion assertion = new ResponseAssertion();
         assertion.setEnabled(this.isEnable());
         if (StringUtils.isNotEmpty(assertionRegex.getDescription())) {
-            assertion.setName(this.getName() + "==" + assertionRegex.getDescription());
+            assertion.setName(this.getName() + delimiter + assertionRegex.getDescription());
         } else {
-            assertion.setName(this.getName() + "==" + "AssertionRegex");
+            assertion.setName(this.getName() + delimiter + "AssertionRegex");
         }
         assertion.setProperty(TestElement.TEST_CLASS, ResponseAssertion.class.getName());
         assertion.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("AssertionGui"));
@@ -101,9 +128,9 @@ public class MsAssertions extends MsTestElement {
         JSONPathAssertion assertion = new JSONPathAssertion();
         assertion.setEnabled(this.isEnable());
         if (StringUtils.isNotEmpty(assertionJsonPath.getDescription())) {
-            assertion.setName(this.getName() + "==" + assertionJsonPath.getDescription());
+            assertion.setName(this.getName() + delimiter + assertionJsonPath.getDescription());
         } else {
-            assertion.setName(this.getName() + "==" + "JSONPathAssertion");
+            assertion.setName(this.getName() + delimiter + "JSONPathAssertion");
         }
         assertion.setProperty(TestElement.TEST_CLASS, JSONPathAssertion.class.getName());
         assertion.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("JSONPathAssertionGui"));
@@ -113,11 +140,7 @@ public class MsAssertions extends MsTestElement {
         assertion.setExpectNull(false);
         assertion.setInvert(false);
         assertion.setProperty("ASS_OPTION", assertionJsonPath.getOption());
-        if (StringUtils.isEmpty(assertionJsonPath.getOption()) || "REGEX".equals(assertionJsonPath.getOption())) {
-            assertion.setIsRegex(true);
-        } else {
-            assertion.setIsRegex(false);
-        }
+        assertion.setIsRegex(StringUtils.isEmpty(assertionJsonPath.getOption()) || "REGEX".equals(assertionJsonPath.getOption()));
         return assertion;
     }
 
@@ -125,9 +148,9 @@ public class MsAssertions extends MsTestElement {
         XPath2Assertion assertion = new XPath2Assertion();
         assertion.setEnabled(this.isEnable());
         if (StringUtils.isNotEmpty(assertionXPath2.getExpression())) {
-            assertion.setName(this.getName() + "==" + assertionXPath2.getExpression());
+            assertion.setName(this.getName() + delimiter + assertionXPath2.getExpression());
         } else {
-            assertion.setName(this.getName() + "==" + "XPath2Assertion");
+            assertion.setName(this.getName() + delimiter + "XPath2Assertion");
         }
         assertion.setProperty(TestElement.TEST_CLASS, XPath2Assertion.class.getName());
         assertion.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("XPath2AssertionGui"));
@@ -139,9 +162,9 @@ public class MsAssertions extends MsTestElement {
     private DurationAssertion durationAssertion(MsAssertionDuration assertionDuration) {
         DurationAssertion assertion = new DurationAssertion();
         assertion.setEnabled(this.isEnable());
-        assertion.setName("" + "==" + "Response In Time: " + assertionDuration.getValue());
+        assertion.setName("" + delimiter + "Response In Time: " + assertionDuration.getValue());
         if (StringUtils.isNotEmpty(this.getName())) {
-            assertion.setName(this.getName() + "==" + "Response In Time: " + assertionDuration.getValue());
+            assertion.setName(this.getName() + delimiter + "Response In Time: " + assertionDuration.getValue());
         }
         assertion.setProperty(TestElement.TEST_CLASS, DurationAssertion.class.getName());
         assertion.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("DurationAssertionGui"));
@@ -153,9 +176,9 @@ public class MsAssertions extends MsTestElement {
         JSR223Assertion assertion = new JSR223Assertion();
         assertion.setEnabled(this.isEnable());
         if (StringUtils.isNotEmpty(assertionJSR223.getDesc())) {
-            assertion.setName(this.getName() + "==" + assertionJSR223.getDesc());
+            assertion.setName("JSR223" + delimiter + this.getName() + delimiter + assertionJSR223.getDesc() + "&&" + assertionJSR223.getScript());
         } else {
-            assertion.setName(this.getName() + "==" + "JSR223Assertion");
+            assertion.setName("JSR223" + delimiter + this.getName() + delimiter + "JSR223Assertion" + "&&" + assertionJSR223.getScript());
         }
         assertion.setProperty(TestElement.TEST_CLASS, JSR223Assertion.class.getName());
         assertion.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("TestBeanGUI"));

@@ -2,13 +2,13 @@
   <div>
     <ms-drawer class="drawer-content" :visible="true" :size="10" direction="left" :show-full-screen="false" :is-show-close="false">
       <div class="title-item" >
-         <span class="title-name">目录</span>
+         <span class="title-name">{{$t('test_track.report.content')}}</span>
         <el-tabs tab-position="right" v-model="activeName">
-          <el-tab-pane v-for="item in data" :key="item.title" :label="item.title" :name="item.link"></el-tab-pane>
+          <el-tab-pane v-for="item in data" :key="item.title" :label="item.title" :name="item.link"/>
         </el-tabs>
       </div>
         <div class="hiddenBottom">
-          <span>目录</span>
+          <span>{{$t('test_track.report.content')}}</span>
         </div>
     </ms-drawer>
   </div>
@@ -21,30 +21,36 @@ export default {
   components: {MsDrawer},
   props: {
     isTemplate: Boolean,
+    overviewEnable: Boolean,
+    summaryEnable: Boolean,
+    functionalEnable: Boolean,
+    apiEnable: Boolean,
+    loadEnable: Boolean,
   },
   data() {
     return {
       activeName: "1",
-      data: [
+      data: [],
+      contents: [
         {
           link: 'overview',
-          title: '概览'
+          title: this.$t('test_track.report.overview'),
         },
         {
           link: 'summary',
-          title: '报告总结'
+          title: this.$t('test_track.report.report_summary'),
         },
         {
           link: 'functional',
-          title: '功能用例统计分析'
+          title: this.$t('test_track.report.analysis_functional'),
         },
         {
           link: 'api',
-          title: '接口用例统计分析'
+          title: this.$t('test_track.report.analysis_api'),
         },
         {
           link: 'load',
-          title: '性能用例统计分析'
+          title: this.$t('test_track.report.analysis_load'),
         }
       ]
     }
@@ -57,6 +63,41 @@ export default {
       } else {
         window.location.href = url.origin + '#' + this.activeName;
       }
+    },
+    overviewEnable() {
+      this.setData();
+    },
+    summaryEnable() {
+      this.setData();
+    },
+    functionalEnable() {
+      this.setData();
+    },
+    apiEnable() {
+      this.setData();
+    },
+    loadEnable() {
+      this.setData();
+    },
+  },
+  mounted() {
+    this.setData();
+  },
+  methods: {
+    setData() {
+      let keyMap = new Map([
+        ['overview', this.overviewEnable],
+        ['summary', this.summaryEnable],
+        ['functional', this.functionalEnable],
+        ['api', this.apiEnable],
+        ['load', this.loadEnable],
+      ]);
+      this.data = [];
+      this.contents.forEach(item => {
+        if (keyMap.get(item.link)) {
+          this.data.push(item);
+        }
+      });
     }
   }
 }
@@ -117,6 +158,10 @@ export default {
 .drawer-content {
     width: 0px !important;
     padding: 0px !important;
+}
+
+.drawer-content >>> .el-tabs__nav{
+    width: 140px !important;
 }
 
 .drawer-content:hover{

@@ -53,28 +53,12 @@
           </el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item :label="$t('api_test.automation.follow_people')" prop="followPeople">
-            <el-select v-model="basicForm.follows"
-                       clearable
-                       multiple
-                       :placeholder="$t('api_test.automation.follow_people')" filterable size="small"
-                       class="ms-http-textarea">
-              <el-option
-                  v-for="item in maintainerOptions"
-                  :key="item.id"
-                  :label="item.id + ' (' + item.name + ')'"
-                  :value="item.id">
-              </el-option>
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-col :span="8">
           <el-form-item :label="$t('commons.description')" prop="description">
             <el-input class="ms-http-textarea"
                       v-model="basicForm.description"
                       type="textarea"
-                      :autosize="{ minRows: 2, maxRows: 10}"
-                      :rows="2" size="small"/>
+                      :autosize="{ minRows: 1, maxRows: 10}"
+                      :rows="1" size="small"/>
           </el-form-item>
         </el-col>
       </el-row>
@@ -136,7 +120,57 @@
 
       }
     },
+    watch: {
+      'basicForm.name': {
+        handler(v, v1) {
+          if (v && v1 && v !== v1) {
+            this.apiMapStatus();
+          }
+        }
+      },
+      'basicForm.userId': {
+        handler(v, v1) {
+          if (v && v1 && v !== v1) {
+            this.apiMapStatus();
+          }
+        }
+      },
+      'basicForm.moduleId': {
+        handler(v, v1) {
+          if (v && v1 && v !== v1) {
+            this.apiMapStatus();
+          }
+        }
+      },
+      'basicForm.status': {
+        handler(v, v1) {
+          if (v && v1 && v !== v1) {
+            this.apiMapStatus();
+          }
+        }
+      },
+      'basicForm.follows': {
+        handler(v, v1) {
+          if (v && v1 && JSON.stringify(v) !== JSON.stringify(v1)) {
+            this.apiMapStatus();
+          }
+        }
+      },
+      'basicForm.description': {
+        handler(v, v1) {
+          if (v && v1 && v !== v1) {
+            this.apiMapStatus();
+          }
+        }
+      },
+    },
     methods: {
+      apiMapStatus() {
+        this.$store.state.apiStatus.set("fromChange", true);
+        if (this.httpForm.id) {
+          this.$store.state.apiMap.set(this.httpForm.id, this.$store.state.apiStatus);
+        }
+      },
       getMaintainerOptions() {
         this.$post('/user/project/member/tester/list', {projectId: getCurrentProjectID()}, response => {
           this.maintainerOptions = response.data;

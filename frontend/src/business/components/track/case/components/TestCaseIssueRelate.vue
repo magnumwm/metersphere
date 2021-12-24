@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-button class="add-btn" v-permission="['PROJECT_TRACK_PLAN:READ+RELEVANCE_OR_CANCEL']" :disabled="readOnly" type="primary" size="mini" @click="appIssue">{{ $t('test_track.issue.add_issue') }}</el-button>
+    <el-button class="add-btn" v-permission="['PROJECT_TRACK_PLAN:READ+RELEVANCE_OR_CANCEL']" :disabled="readOnly" type="primary" size="mini" @click="addIssue">{{ $t('test_track.issue.add_issue') }}</el-button>
     <el-button class="add-btn" v-permission="['PROJECT_TRACK_PLAN:READ+RELEVANCE_OR_CANCEL']"  :disabled="readOnly" type="primary" size="mini" @click="relateIssue">{{ $t('test_track.case.relate_issue') }}</el-button>
     <el-tooltip class="item" v-permission="['PROJECT_TRACK_PLAN:READ+RELEVANCE_OR_CANCEL']"  effect="dark"
                 :content="$t('test_track.issue.platform_tip')"
@@ -86,7 +86,7 @@
     </ms-table>
 
     <test-plan-issue-edit :plan-id="planId" :case-id="caseId" @refresh="getIssues" ref="issueEdit"/>
-    <IssueRelateList :is-third-part="isThirdPart" :case-id="caseId"  @refresh="getIssues" ref="issueRelate"/>
+    <IssueRelateList :case-id="caseId"  @refresh="getIssues" ref="issueRelate"/>
   </div>
 </template>
 
@@ -97,9 +97,9 @@ import MsTableColumn from "@/business/components/common/components/table/MsTable
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import {ISSUE_STATUS_MAP} from "@/common/js/table-constants";
 import IssueRelateList from "@/business/components/track/case/components/IssueRelateList";
-import {getIssuesByCaseId} from "@/network/Issue";
-import {getIssueTemplate} from "@/network/custom-field-template";
+import {deleteIssueRelate, getIssuePartTemplateWithProject, getIssuesByCaseId} from "@/network/Issue";
 import {getCustomFieldValue, getTableHeaderWithCustomFields} from "@/common/js/tableUtils";
+import {LOCAL} from "@/common/js/constants";
 export default {
   name: "TestCaseIssueRelate",
   components: {IssueRelateList, IssueDescriptionTableItem, MsTableColumn, MsTable, TestPlanIssueEdit},
@@ -120,7 +120,8 @@ export default {
           exec: this.deleteIssue
         }
       ],
-      status: []
+      status: [],
+      issueRelateVisible: false
     }
   },
   props: ['caseId', 'readOnly','planId'],
@@ -130,34 +131,34 @@ export default {
     },
   },
   created() {
-    getIssueTemplate()
-      .then((template) => {
-        this.issueTemplate = template;
-        if (this.issueTemplate.platform === 'metersphere') {
-          this.isThirdPart = false;
-        } else {
-          this.isThirdPart = true;
-        }
-        if (template) {
-          let customFields = template.customFields;
-          for (let fields of customFields) {
-            if (fields.name === '状态') {
-              this.status = fields.options;
-              break;
-            }
+    getIssuePartTemplateWithProject((template, project) => {
+      this.currentProject = project;
+      this.issueTemplate = template;
+      if (this.issueTemplate.platform === LOCAL) {
+        this.isThirdPart = false;
+      } else {
+        this.isThirdPart = true;
+      }
+      if (template) {
+        let customFields = template.customFields;
+        for (let fields of customFields) {
+          if (fields.name === '状态') {
+            this.status = fields.options;
+            break;
           }
         }
-        this.fields = getTableHeaderWithCustomFields('ISSUE_LIST', this.issueTemplate.customFields);
-        if (!this.isThirdPart) {
-          for (let i = 0; i < this.fields.length; i++) {
-            if (this.fields[i].id === 'platformStatus') {
-              this.fields.splice(i, 1);
-              break;
-            }
+      }
+      this.fields = getTableHeaderWithCustomFields('ISSUE_LIST', this.issueTemplate.customFields);
+      if (!this.isThirdPart) {
+        for (let i = 0; i < this.fields.length; i++) {
+          if (this.fields[i].id === 'platformStatus') {
+            this.fields.splice(i, 1);
+            break;
           }
         }
-        this.$refs.table.reloadTable();
-      });
+      }
+      this.$refs.table.reloadTable();
+    });
   },
   methods: {
     statusChange(param) {
@@ -175,7 +176,7 @@ export default {
         this.page.result = result;
       }
     },
-    appIssue() {
+    addIssue() {
       if (!this.caseId) {
         this.$warning(this.$t('api_test.automation.save_case_info'));
         return;
@@ -200,10 +201,10 @@ export default {
       }
     },
     deleteIssue(row) {
-      this.page.result = this.$post("/issues/delete/relate", {id: row.id, caseId: this.caseId}, () => {
+      this.page.result = deleteIssueRelate({id: row.id, caseId: this.caseId}, () => {
         this.getIssues();
         this.$success(this.$t('commons.delete_success'));
-      })
+      });
     },
   }
 }

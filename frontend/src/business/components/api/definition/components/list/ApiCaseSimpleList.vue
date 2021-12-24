@@ -81,6 +81,7 @@
             :field="item"
             :fields-width="fieldsWidth"
             min-width="120px"
+            sortable
             :label="$t('test_track.case.priority')">
             <template v-slot:default="scope">
               <priority-table-item :value="scope.row.priority"/>
@@ -100,7 +101,7 @@
           </ms-table-column>
 
           <ms-table-column
-            prop="status"
+            prop="execResult"
             :filters="statusFilters"
             :field="item"
             :fields-width="fieldsWidth"
@@ -501,9 +502,13 @@ export default {
         let url = "/api/definition/report/get/" + apiCase.lastResultId;
         this.$get(url, response => {
           if (response.data) {
-            let data = JSON.parse(response.data.content);
-            this.response = data;
-            this.resVisible = true;
+            try {
+              let data = JSON.parse(response.data.content);
+              this.response = data;
+              this.resVisible = true;
+            } catch (error) {
+              this.resVisible = true;
+            }
           }
         });
       }
@@ -548,6 +553,11 @@ export default {
       this.$post('/api/testcase/batch/run', obj, () => {
         this.condition.ids = [];
         this.$refs.batchRun.close();
+        if (this.$store.state.currentApiCase) {
+          this.$store.state.currentApiCase.case = true;
+        } else {
+          this.$store.state.currentApiCase = {case: true};
+        }
         this.search();
       });
     },
@@ -643,7 +653,7 @@ export default {
         this.condition.protocol = this.currentProtocol;
       }
       //检查是否只查询本周数据
-      this.isSelectThissWeekData();
+      this.isSelectThisWeekData();
       this.condition.selectThisWeedData = false;
       this.condition.id = null;
       if (this.selectDataRange == 'thisWeekCount') {
@@ -651,9 +661,9 @@ export default {
       } else if (this.selectDataRange != null) {
         let selectParamArr = this.selectDataRange.split(":");
         if (selectParamArr.length === 2) {
-          if(selectParamArr[0] === "single") {
+          if (selectParamArr[0] === "single") {
             this.condition.id = selectParamArr[1];
-          }else {
+          } else {
             this.condition.apiDefinitionId = selectParamArr[1];
           }
         }
@@ -799,7 +809,6 @@ export default {
             obj = Object.assign(obj, this.condition);
             this.$post('/api/testcase/deleteBatchByParam/', obj, () => {
               this.$refs.caseTable.clearSelectRows();
-              // this.initTable();
               this.$emit('refreshTable');
               this.$success(this.$t('commons.delete_success'));
             });
@@ -879,7 +888,6 @@ export default {
           if (action === 'confirm') {
             this.$get('/api/testcase/delete/' + apiCase.id, () => {
               this.$success(this.$t('commons.delete_success'));
-              // this.initTable();
               this.$emit('refreshTable');
             });
           }
@@ -937,7 +945,7 @@ export default {
               apiNames += ";" + item;
             }
           });
-          this.$error("请先恢复[" + apiNames + "]接口");
+          this.$error(this.$t('api_test.definition.case_reduction_error_text') + "[" + apiNames + "]" + this.$t("api_test.home_page.api_details_card.title"));
         } else {
           this.$success(this.$t('commons.save_success'));
         }
@@ -963,7 +971,7 @@ export default {
               apiNames += ";" + item;
             }
           });
-          this.$error("请先恢复[" + apiNames + "]接口");
+          this.$error(this.$t('api_test.definition.case_reduction_error_text') + "[" + apiNames + "]" + this.$t("api_test.home_page.api_details_card.title"));
         } else {
           this.$success(this.$t('commons.save_success'));
         }
@@ -987,7 +995,7 @@ export default {
       }
     },
     //判断是否只显示本周的数据。  从首页跳转过来的请求会带有相关参数
-    isSelectThissWeekData() {
+    isSelectThisWeekData() {
       this.selectDataRange = "all";
       let routeParam = this.$route.params.dataSelectRange;
       let dataType = this.$route.params.dataType;
@@ -1010,8 +1018,6 @@ export default {
       this.$refs.viewRef.open(param);
     },
     showEnvironment(row) {
-
-      let projectID = this.projectId;
       if (this.projectId) {
         this.$get('/api/environment/list/' + this.projectId, response => {
           this.environments = response.data;
@@ -1052,6 +1058,9 @@ export default {
           if (!stepArray[i].clazzName) {
             stepArray[i].clazzName = TYPE_TO_C.get(stepArray[i].type);
           }
+          if (stepArray[i].type === "Assertions" && !stepArray[i].document) {
+            stepArray[i].document = {type: "JSON", data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}};
+          }
           if (stepArray[i] && stepArray[i].authManager && !stepArray[i].authManager.clazzName) {
             stepArray[i].authManager.clazzName = TYPE_TO_C.get(stepArray[i].authManager.type);
           }
@@ -1075,7 +1084,6 @@ export default {
       }
       let projectId = getCurrentProjectID();
       let runData = [];
-      let singleLoading = true;
       row.request = JSON.parse(row.request);
       row.request.name = row.id;
       row.request.useEnvironment = environment.id;
@@ -1129,12 +1137,6 @@ export default {
         this.$router.push({
           path: "/performance/test/create"
         });
-        // let performanceId = response.data;
-        // if(performanceId!=null){
-        //   this.$router.push({
-        //     path: "/performance/test/edit/"+performanceId,
-        //   })
-        // }
       }, erro => {
         this.$emit('runRefresh', {});
       });

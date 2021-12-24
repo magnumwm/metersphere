@@ -1,56 +1,64 @@
 // 模板
 import i18n from "@/i18n/i18n";
+import {AZURE_DEVOPS, JIRA, LOCAL, TAPD, ZEN_TAO} from "@/common/js/constants";
 
 export const CUSTOM_FIELD_TYPE_OPTION = [
-  {value: 'input',text: '输入框'},
-  {value: 'textarea',text: '文本框'},
-  {value: 'select',text: '单选下拉列表'},
-  {value: 'multipleSelect',text: '多选下拉列表'},
-  {value: 'radio',text: '单选框'},
-  {value: 'checkbox',text: '多选框'},
-  {value: 'member',text: '单选成员'},
-  {value: 'multipleMember',text: '多选成员'},
-  {value: 'data',text: '日期'},
-  {value: 'int',text: '整型'},
-  {value: 'float',text: '浮点型'},
-  {value: 'multipleInput',text: '多值输入框'}
+  {value: 'input',text: 'workspace.custom_filed.input'},
+  {value: 'textarea',text: 'workspace.custom_filed.textarea'},
+  {value: 'select',text: 'workspace.custom_filed.select'},
+  {value: 'multipleSelect',text: 'workspace.custom_filed.multipleSelect'},
+  {value: 'radio',text: 'workspace.custom_filed.radio'},
+  {value: 'checkbox',text: 'workspace.custom_filed.checkbox'},
+  {value: 'member',text: 'workspace.custom_filed.member'},
+  {value: 'multipleMember',text: 'workspace.custom_filed.multipleMember'},
+  {value: 'date',text: 'workspace.custom_filed.date'},
+  {value: 'datetime',text: 'workspace.custom_filed.datetime'},
+  {value: 'richText',text: 'workspace.custom_filed.richText'},
+  {value: 'int',text: 'workspace.custom_filed.int'},
+  {value: 'float',text: 'workspace.custom_filed.float'},
+  {value: 'multipleInput',text: 'workspace.custom_filed.multipleInput'}
 ];
 
 export const CUSTOM_FIELD_SCENE_OPTION = [
-  {value: 'TEST_CASE',text: '用例模板'},
-  {value: 'ISSUE',text: '缺陷模板'},
+  {value: 'TEST_CASE',text: 'workspace.case_template_manage'},
+  {value: 'ISSUE',text: 'workspace.issue_template_manage'},
 ];
 
-export const CASE_TYPE_OPTION = [
-  {value: 'functional',text: '功能用例'},
-];
+export function CASE_TYPE_OPTION(){
+  return [
+    {value: 'functional', text: i18n.t('api_test.home_page.failed_case_list.table_value.case_type.functional')},
+  ];
+}
 
 export const ISSUE_PLATFORM_OPTION = [
-  {value: 'metersphere',text: 'Metersphere'},
-  {value: 'Jira',text: 'JIRA'},
-  {value: 'Tapd',text: 'Tapd'},
-  {value: 'Zentao',text: '禅道'},
-  {value: 'AzureDevops',text: 'Azure Devops'},
+  {value: LOCAL, text: 'Metersphere'},
+  {value: TAPD, text: 'Tapd'},
+  {value: JIRA, text: 'JIRA'},
+  {value: ZEN_TAO, text: 'Zentao'},
+  {value: AZURE_DEVOPS, text: 'Azure Devops'},
 ];
 
 export const FIELD_TYPE_MAP = {
-  input: '输入框',
-  textarea: '文本框',
-  select: '单选下拉列表',
-  multipleSelect: '多选下拉列表',
-  radio: '单选框',
-  checkbox: '多选框',
-  member: '单选成员',
-  multipleMember: '多选成员',
-  data: '日期',
-  int: '整型',
-  float: '浮点型',
-  multipleInput: '多值输入框'
+  input: 'workspace.custom_filed.input',
+  textarea: 'workspace.custom_filed.textarea',
+  select: 'workspace.custom_filed.select',
+  multipleSelect: 'workspace.custom_filed.multipleSelect',
+  radio: 'workspace.custom_filed.radio',
+  checkbox: 'workspace.custom_filed.checkbox',
+  member: 'workspace.custom_filed.member',
+  multipleMember: 'workspace.custom_filed.multipleMember',
+  date: 'workspace.custom_filed.date',
+  datetime: 'workspace.custom_filed.datetime',
+  richText: 'workspace.custom_filed.richText',
+  int: 'workspace.custom_filed.int',
+  float: 'workspace.custom_filed.float',
+  multipleInput: 'workspace.custom_filed.multipleInput'
 };
 
 export const SCENE_MAP = {
-  ISSUE: '缺陷模板',
-  TEST_CASE: '用例模板'
+  ISSUE: 'workspace.issue_template_manage',
+  TEST_CASE: 'workspace.case_template_manage',
+  PLAN: 'workstation.table_name.track_plan'
 };
 
 export const SYSTEM_FIELD_NAME_MAP = {
@@ -63,46 +71,69 @@ export const SYSTEM_FIELD_NAME_MAP = {
   处理人: 'custom_field.issue_processor',
   状态: 'custom_field.issue_status',
   严重程度: 'custom_field.issue_severity',
+  // 测试计划
+  测试阶段: 'test_track.plan.plan_stage'
 }
 
 
 export const ISSUE_STATUS_MAP = {
-  'new': '新建',
-  'closed': '已关闭',
-  'resolved': '已解决',
-  'active': '激活',
-  'delete': '已删除'
+  'new': i18n.t('test_track.issue.status_new'),
+  'closed': i18n.t('test_track.issue.status_closed'),
+  'resolved': i18n.t('test_track.issue.status_resolved'),
+  'active': i18n.t('test_track.issue.status_active'),
+  'delete': i18n.t('test_track.issue.status_delete'),
+  'created':i18n.t('test_track.issue.status_new')
 }
 
-export const API_SCENARIO_FILTERS = {
-  LEVEL_FILTERS: [
+export function API_SCENARIO_FILTERS () {
+  return {
+    STATUS_FILTERS: [
+      {text: i18n.t('test_track.plan.plan_status_prepare'), value: 'Prepare'},
+      {text: i18n.t('test_track.plan.plan_status_running'), value: 'Underway'},
+      {text: i18n.t('test_track.plan.plan_status_completed'), value: 'Completed'},
+      {text: i18n.t('test_track.plan.plan_status_trash'), value: 'Trash'},
+    ],
+    LEVEL_FILTERS: [
+      {text: 'P0', value: 'P0'},
+      {text: 'P1', value: 'P1'},
+      {text: 'P2', value: 'P2'},
+      {text: 'P3', value: 'P3'}
+    ],
+    RESULT_FILTERS: [
+      {text: i18n.t('api_test.automation.fail'), value: 'Fail'},
+      {text: i18n.t('api_test.automation.success'), value: 'Success'}
+    ]
+  };
+  /*LEVEL_FILTERS: [
     {text: 'P0', value: 'P0'},
     {text: 'P1', value: 'P1'},
     {text: 'P2', value: 'P2'},
     {text: 'P3', value: 'P3'}
-  ],
+  ];
   RESULT_FILTERS: [
-    {text: 'Fail', value: 'Fail'},
-    {text: 'Success', value: 'Success'}
-  ],
-  STATUS_FILTERS: [
+    {text: i18n.t('api_test.automation.fail'), value: 'Fail'},
+    {text: i18n.t('api_test.automation.success'), value: 'Success'}
+  ];*/
+
+  /*STATUS_FILTERS: [
     {text: i18n.t('test_track.plan.plan_status_prepare'), value: 'Prepare'},
     {text: i18n.t('test_track.plan.plan_status_running'), value: 'Underway'},
     {text: i18n.t('test_track.plan.plan_status_completed'), value: 'Completed'},
     {text: i18n.t('test_track.plan.plan_status_trash'), value: 'Trash'},
-  ],
+  ],*/
 }
 
+
+
 export const USER_GROUP_SCOPE = {
-  // todo i18n
-  'SYSTEM': '系统',
-  'WORKSPACE': '工作空间',
-  'PROJECT': '项目'
+  'SYSTEM': 'group.system',
+  'WORKSPACE': 'group.workspace',
+  'PROJECT': 'group.project'
 }
 
 export const PROJECT_GROUP_SCOPE = {
-  'TRACK': '测试跟踪',
-  'API': '接口测试',
-  'PERFORMANCE': '性能测试',
-  'REPORT': '报告统计'
+  'TRACK': 'permission.other.track',
+  'API': 'permission.other.api',
+  'PERFORMANCE': 'permission.other.performance',
+  'REPORT': 'permission.other.report'
 }

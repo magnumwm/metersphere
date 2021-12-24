@@ -5,6 +5,9 @@ const ProjectEnv = () => import('@/business/components/project/menu/EnvironmentL
 const ProjectLog = () => import('@/business/components/project/menu/Log')
 const ProjectCodeSegment = () => import('@/business/components/project/menu/function/CustomFunction')
 const ProjectFileManage = () => import('@/business/components/project/menu/file/FileManage')
+const ProjectUserGroup = () => import('@/business/components/project/menu/UserGroup')
+const ProjectAppManage = () => import('@/business/components/project/menu/appmanage/AppManage')
+
 
 export default {
   path: "/project",
@@ -22,6 +25,10 @@ export default {
     {
       path: 'member',
       component: ProjectMember
+    },
+    {
+      path: 'usergroup',
+      component: ProjectUserGroup
     },
     {
       path: 'env',
@@ -42,7 +49,11 @@ export default {
     {
       path: 'file/manage',
       component: ProjectFileManage
-    }
+    },
 
+    {
+      path: 'app',
+      component: ProjectAppManage
+    },
   ]
 };

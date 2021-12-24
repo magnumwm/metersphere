@@ -5,9 +5,9 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.JSONValidator;
 import io.metersphere.api.dto.mockconfig.response.JsonSchemaReturnObj;
-import io.metersphere.base.domain.ApiDefinitionWithBLOBs;
 import io.metersphere.commons.exception.MSException;
 import io.metersphere.commons.json.JSONSchemaGenerator;
+import io.metersphere.commons.utils.LogUtil;
 import io.metersphere.commons.utils.XMLUtils;
 import io.metersphere.jmeter.utils.ScriptEngineUtils;
 import org.apache.commons.collections.MapUtils;
@@ -16,6 +16,7 @@ import org.apache.jmeter.protocol.java.sampler.JSR223Sampler;
 import org.apache.jmeter.samplers.SampleResult;
 import org.json.XML;
 
+import javax.script.ScriptException;
 import javax.servlet.http.HttpServletRequest;
 import java.io.*;
 import java.util.*;
@@ -25,39 +26,36 @@ import java.util.*;
  * @Date 2021/10/14 3:00 下午
  */
 public class MockApiUtils {
-    public static Map<String,String> getHttpRequestHeader(HttpServletRequest request){
-        Map<String,String> returnMap = new HashMap<>();
+    public static Map<String, String> getHttpRequestHeader(HttpServletRequest request) {
+        Map<String, String> returnMap = new HashMap<>();
         Enumeration<String> headers = request.getHeaderNames();
-        while (headers.hasMoreElements()){
+        while (headers.hasMoreElements()) {
             String header = headers.nextElement();
             String headerValue = request.getHeader(header);
-            returnMap.put(header,headerValue);
+            returnMap.put(header, headerValue);
         }
         return returnMap;
     }
 
     public static boolean matchRequestHeader(JSONArray mockExpectHeaderArray, Map<String, String> requestHeaderMap) {
-        Map<String,String> mockExpectHeaders = new HashMap<>();
-        for(int i = 0; i < mockExpectHeaderArray.size(); i++){
+        Map<String, String> mockExpectHeaders = new HashMap<>();
+        for (int i = 0; i < mockExpectHeaderArray.size(); i++) {
             JSONObject obj = mockExpectHeaderArray.getJSONObject(i);
-            if(obj.containsKey("name") && obj.containsKey("value") && obj.containsKey("enable")){
-                boolean enable = obj.getBoolean("enable");
-                if(enable){
-                    mockExpectHeaders.put(obj.getString("name"),obj.getString("value"));
-                }
+            if (obj.containsKey("name") && obj.containsKey("value")) {
+                mockExpectHeaders.put(obj.getString("name"), obj.getString("value"));
             }
         }
-        if(MapUtils.isEmpty(requestHeaderMap) && MapUtils.isNotEmpty(mockExpectHeaders)){
+        if (MapUtils.isEmpty(requestHeaderMap) && MapUtils.isNotEmpty(mockExpectHeaders)) {
             return false;
-        }else {
-            for (Map.Entry<String, String> entry: mockExpectHeaders.entrySet()){
+        } else {
+            for (Map.Entry<String, String> entry : mockExpectHeaders.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
 
-                if(!requestHeaderMap.containsKey(key)){
+                if (!requestHeaderMap.containsKey(key)) {
                     return false;
-                }else {
-                    if(!StringUtils.equals(value,requestHeaderMap.get(key))){
+                } else {
+                    if (!StringUtils.equals(value, requestHeaderMap.get(key))) {
                         return false;
                     }
                 }
@@ -66,8 +64,8 @@ public class MockApiUtils {
         }
     }
 
-    public static JSONArray getExpectBodyParams(JSONObject bodyObj) {
-        JSONArray returnJsonArray = new JSONArray();
+    public static JSON getExpectBodyParams(JSONObject bodyObj) {
+        JSON returnJson = new JSONArray();
 
         try {
             String type = bodyObj.getString("type");
@@ -83,8 +81,8 @@ public class MockApiUtils {
 
                 String jsonString = "";
                 if (isJsonSchema) {
-                    if (bodyObj.containsKey("jsonSchema") && bodyObj.getJSONObject("jsonSchema").containsKey("properties")) {
-                        String bodyRetunStr = bodyObj.getJSONObject("jsonSchema").getJSONObject("properties").toJSONString();
+                    if (bodyObj.containsKey("jsonSchema")) {
+                        String bodyRetunStr = bodyObj.getJSONObject("jsonSchema").toJSONString();
                         jsonString = JSONSchemaGenerator.getJson(bodyRetunStr);
                     }
                 } else {
@@ -94,25 +92,25 @@ public class MockApiUtils {
                 }
                 JSONValidator jsonValidator = JSONValidator.from(jsonString);
                 if (StringUtils.equalsIgnoreCase("Array", jsonValidator.getType().name())) {
-                    returnJsonArray = JSONArray.parseArray(jsonString);
+                    returnJson = JSONArray.parseArray(jsonString);
                 } else if (StringUtils.equalsIgnoreCase("Object", jsonValidator.getType().name())) {
                     JSONObject jsonObject = JSONObject.parseObject(jsonString);
-                    returnJsonArray.add(jsonObject);
+                    returnJson = jsonObject;
                 }
 
             } else if (StringUtils.equalsIgnoreCase(type, "XML")) {
                 if (bodyObj.containsKey("raw")) {
                     String xmlStr = bodyObj.getString("raw");
                     JSONObject matchObj = XMLUtils.XmlToJson(xmlStr);
-                    returnJsonArray.add(matchObj);
+                    returnJson = matchObj;
                 }
-            } else if (StringUtils.equalsIgnoreCase(type,  "Raw")) {
+            } else if (StringUtils.equalsIgnoreCase(type, "Raw")) {
                 if (bodyObj.containsKey("raw")) {
                     String raw = bodyObj.getString("raw");
-                    if(StringUtils.isNotEmpty(raw)){
+                    if (StringUtils.isNotEmpty(raw)) {
                         JSONObject rawObject = new JSONObject();
-                        rawObject.put("raw",raw);
-                        returnJsonArray.add(rawObject);
+                        rawObject.put("raw", raw);
+                        returnJson = rawObject;
                     }
                 }
             } else if (StringUtils.equalsAnyIgnoreCase(type, "Form Data", "WWW_FORM")) {
@@ -134,13 +132,14 @@ public class MockApiUtils {
                             bodyParamArr.put(kv.getString("name"), values);
                         }
                     }
-                    returnJsonArray.add(bodyParamArr);
+                    returnJson = bodyParamArr;
                 }
             }
-        }catch (Exception e){}
+        } catch (Exception e) {
+        }
 
 
-        return  returnJsonArray;
+        return returnJson;
     }
 
     public static JSONObject parseJsonSchema(JSONObject bodyReturnObj) {
@@ -190,7 +189,7 @@ public class MockApiUtils {
                     returnObj.put(key, values);
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LogUtil.error(e);
             }
         }
         return returnObj;
@@ -210,13 +209,10 @@ public class MockApiUtils {
 
     public static JSONObject getParamsByJSONArray(JSONArray array) {
         JSONObject returnObject = new JSONObject();
-        for(int i = 0; i < array.size();i ++){
+        for (int i = 0; i < array.size(); i++) {
             JSONObject obj = array.getJSONObject(i);
-            if(obj.containsKey("name") && obj.containsKey("value") && obj.containsKey("enable")){
-                boolean isEnable = obj.getBoolean("enable");
-                if(isEnable){
-                    returnObject.put(obj.getString("name"),obj.getString("value"));
-                }
+            if (obj.containsKey("name") && obj.containsKey("value")) {
+                returnObject.put(obj.getString("name"), obj.getString("value"));
             }
         }
         return returnObject;
@@ -225,7 +221,7 @@ public class MockApiUtils {
     public static Map<String, String> getApiResponse(String response) {
         Map<String, String> returnMap = new HashMap<>();
         String returnStr = "";
-        if(StringUtils.isNotEmpty(response)){
+        if (StringUtils.isNotEmpty(response)) {
             try {
                 JSONObject respObj = JSONObject.parseObject(response);
                 if (respObj.containsKey("body")) {
@@ -283,26 +279,26 @@ public class MockApiUtils {
                         }
                     }
                 }
-            }catch (Exception e){
+            } catch (Exception e) {
                 MSException.throwException(e);
             }
         }
-        returnMap.put("returnMsg",returnStr);
+        returnMap.put("returnMsg", returnStr);
         return returnMap;
     }
 
-    public static String getResultByResponseResult(JSONObject bodyObj,String url, Map<String,String> headerMap,RequestMockParams requestMockParams) {
-        if(headerMap == null){
+    public static String getResultByResponseResult(JSONObject bodyObj, String url, Map<String, String> headerMap, RequestMockParams requestMockParams) {
+        if (headerMap == null) {
             headerMap = new HashMap<>();
         }
-        if(requestMockParams == null){
+        if (requestMockParams == null) {
             requestMockParams = new RequestMockParams();
         }
-        if(bodyObj == null && bodyObj.isEmpty()){
+        if (bodyObj == null && bodyObj.isEmpty()) {
             return "";
-        }else {
+        } else {
             String returnStr = "";
-            if(bodyObj.containsKey("type")){
+            if (bodyObj.containsKey("type")) {
                 String type = bodyObj.getString("type");
                 if (StringUtils.equals(type, "JSON")) {
                     //判断是否是JsonSchema
@@ -325,17 +321,17 @@ public class MockApiUtils {
                             returnStr = bodyObj.getString("raw");
                         }
                     }
-                } else if(StringUtils.equalsAnyIgnoreCase(type,"Raw")){
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "Raw")) {
                     if (bodyObj.containsKey("raw")) {
                         String raw = bodyObj.getString("raw");
                         returnStr = raw;
                     }
-                } else if(StringUtils.equalsAnyIgnoreCase(type,"XML")){
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "XML")) {
                     if (bodyObj.containsKey("xmlHeader")) {
                         String xmlHeader = bodyObj.getString("xmlHeader");
-                        if(!StringUtils.startsWith(xmlHeader,"<?") && !StringUtils.endsWith(xmlHeader,"?>")){
-                            returnStr = "<?"+xmlHeader+"?>\r\n";
-                        }else {
+                        if (!StringUtils.startsWith(xmlHeader, "<?") && !StringUtils.endsWith(xmlHeader, "?>")) {
+                            returnStr = "<?" + xmlHeader + "?>\r\n";
+                        } else {
                             returnStr = xmlHeader;
                         }
                     }
@@ -343,25 +339,27 @@ public class MockApiUtils {
                         String raw = bodyObj.getString("xmlRaw");
                         returnStr = returnStr + raw;
                     }
-                } else if(StringUtils.equalsAnyIgnoreCase(type,"fromApi")){
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "fromApi")) {
                     if (bodyObj.containsKey("apiRspRaw")) {
                         String raw = bodyObj.getString("apiRspRaw");
                         returnStr = raw;
                     }
-                } else if(StringUtils.equalsAnyIgnoreCase(type,"script")){
+                } else if (StringUtils.equalsAnyIgnoreCase(type, "script")) {
                     if (bodyObj.containsKey("scriptObject")) {
                         JSONObject scriptObj = bodyObj.getJSONObject("scriptObject");
                         String script = scriptObj.getString("script");
-                        String scriptLanguage =scriptObj.getString("scriptLanguage");
+                        String scriptLanguage = scriptObj.getString("scriptLanguage");
 
-                        Map<String,String> scrpitParseMap = parseScript(script,url,headerMap,requestMockParams);
-                        if(scrpitParseMap.containsKey("returnMsg")){
-                            returnStr = scrpitParseMap.get("returnMsg");
+                        String baseScript = parseScript(url, headerMap, requestMockParams);
+                        try {
+                            script = baseScript + script;
+                            if (StringUtils.isEmpty(scriptLanguage)) {
+                                scriptLanguage = "beanshell";
+                            }
+                            returnStr = runScript(script, scriptLanguage);
+                        } catch (Exception e) {
+                            LogUtil.error(e);
                         }
-                        if(scrpitParseMap.containsKey("script")){
-                            script = scrpitParseMap.get("script");
-                        }
-                        runScript(script,scriptLanguage);
                     }
                 }
 
@@ -370,90 +368,82 @@ public class MockApiUtils {
         }
     }
 
-    private static Map<String,String> parseScript(String script,String url,Map<String,String> headerMap,RequestMockParams requestMockParams) {
-        Map<String,String> returnMap = new HashMap<>();
-        String returnMsg = "";
-        String newScript = "";
-        if(StringUtils.isNotEmpty(script)){
-            String [] scriptRowArr = StringUtils.split(script,"\n");
-            for (String scriptItemRows : scriptRowArr) {
-                String [] scriptItemArr = scriptItemRows.split(";");
-                for (String scriptRow :scriptItemArr) {
-                    scriptRow = scriptRow.trim();
-                    if(StringUtils.startsWith(scriptRow,"returnMsg.add(") && StringUtils.endsWith(scriptRow,")")){
-                        scriptRow = scriptRow.substring(14,scriptRow.length()-1).trim();
-                        if(StringUtils.equalsIgnoreCase(scriptRow,"@address")){
-                            returnMsg += url;
-                        }else if(StringUtils.startsWith(scriptRow,"@header(${") && StringUtils.endsWith(scriptRow,"})")){
-                            String paramName = scriptRow.substring(10,scriptRow.length()-2);
-                            if(headerMap.containsKey(paramName)){
-                                returnMsg += headerMap.get(paramName);
-                            }
-                        }else if(StringUtils.startsWith(scriptRow,"@body(${") && StringUtils.endsWith(scriptRow,"})")){
-                            String paramName = scriptRow.substring(8,scriptRow.length()-2);
-                            if(requestMockParams.getBodyParams() != null && requestMockParams.getBodyParams().size() > 0){
-                                JSONObject bodyParamObj = requestMockParams.getBodyParams().getJSONObject(0);
-                                if(bodyParamObj.containsKey(paramName)){
-                                    returnMsg += String.valueOf(bodyParamObj.get(paramName));
-                                }
-                            }
-                        }else if(StringUtils.equalsIgnoreCase(scriptRow,"@bodyRaw")){
-                            if(requestMockParams.getBodyParams() != null && requestMockParams.getBodyParams().size() > 0){
-                                JSONObject bodyParamObj = requestMockParams.getBodyParams().getJSONObject(0);
-                                if(bodyParamObj.containsKey("raw")){
-                                    returnMsg += String.valueOf(bodyParamObj.get("raw"));
-                                }
-                            }
-                        }else if(StringUtils.startsWith(scriptRow,"@query(${") && StringUtils.endsWith(scriptRow,"})")){
-                            String paramName = scriptRow.substring(9,scriptRow.length()-2);
-                            if(requestMockParams.getQueryParamsObj() != null && requestMockParams.getQueryParamsObj().containsKey(paramName)){
-                                returnMsg += String.valueOf(requestMockParams.getQueryParamsObj().get(paramName));
-                            }
-                        }else if(StringUtils.startsWith(scriptRow,"@rest(${") && StringUtils.endsWith(scriptRow,"})")){
-                            String paramName = scriptRow.substring(8,scriptRow.length()-2);
-                            if(requestMockParams.getRestParamsObj() != null && requestMockParams.getRestParamsObj().containsKey(paramName)){
-                                returnMsg += String.valueOf(requestMockParams.getRestParamsObj().get(paramName));
-                            }
-                        }else {
-                            returnMsg += scriptRow;
-                        }
-                    }else {
-                        newScript += scriptRow +";";
+    private static String parseScript(String url, Map<String, String> headerMap, RequestMockParams requestMockParams) {
+        StringBuffer scriptStringBuffer = new StringBuffer();
+        scriptStringBuffer.append("import java.util.HashMap;\n\n");
+        scriptStringBuffer.append("HashMap requestParams = new HashMap();\n");
+        scriptStringBuffer.append("requestParams.put(\"address\",\"" + url + "\");\n");
+        //写入请求头
+        for (Map.Entry<String, String> headEntry : headerMap.entrySet()) {
+            String headerKey = headEntry.getKey();
+            String headerValue = headEntry.getValue();
+            scriptStringBuffer.append("requestParams.put(\"header." + headerKey + "\",\"" + headerValue + "\");\n");
+        }
+        //写入body参数
+        if (requestMockParams.getBodyParams() != null) {
+            if (requestMockParams.getBodyParams().size() == 1) {
+                //参数是jsonObject
+                JSONObject bodyParamObj = requestMockParams.getBodyParams().getJSONObject(0);
+                for (String key : bodyParamObj.keySet()) {
+                    String value = String.valueOf(bodyParamObj.get(key));
+                    value = StringUtils.replace(value, "\\", "\\\\");
+                    value = StringUtils.replace(value, "\"", "\\\"");
+                    scriptStringBuffer.append("requestParams.put(\"body." + key + "\",\"" + value + "\");\n");
+                    if (StringUtils.equalsIgnoreCase(key, "raw")) {
+                        scriptStringBuffer.append("requestParams.put(\"bodyRaw\",\"" + value + "\");\n");
                     }
                 }
-                if(StringUtils.isNotEmpty(newScript)){
-                    newScript += "\n";
-                }
-                if(StringUtils.isNotEmpty(returnMsg)){
-                    returnMsg += "\n";
-                }
+                String jsonBody = bodyParamObj.toJSONString();
+                jsonBody = StringUtils.replace(jsonBody, "\\", "\\\\");
+                jsonBody = StringUtils.replace(jsonBody, "\"", "\\\"");
+                scriptStringBuffer.append("requestParams.put(\"body.json\",\"" + jsonBody + "\");\n");
+            } else {
+                scriptStringBuffer.append("requestParams.put(\"bodyRaw\",\"" + requestMockParams.getBodyParams().toJSONString() + "\");\n");
+            }
+
+        }
+        //写入query参数
+        if (requestMockParams.getQueryParamsObj() != null) {
+            JSONObject queryParamsObj = requestMockParams.getQueryParamsObj();
+            for (String key : queryParamsObj.keySet()) {
+                String value = String.valueOf(queryParamsObj.get(key));
+                value = StringUtils.replace(value, "\\", "\\\\");
+                value = StringUtils.replace(value, "\"", "\\\"");
+                scriptStringBuffer.append("requestParams.put(\"query." + key + "\",\"" + value + "\");\n");
             }
         }
-        returnMap.put("script",newScript);
-        returnMap.put("returnMsg",returnMsg);
-        return returnMap;
+        //写入rest参数
+        if (requestMockParams.getRestParamsObj() != null) {
+            JSONObject restParamsObj = requestMockParams.getRestParamsObj();
+            for (String key : restParamsObj.keySet()) {
+                String value = String.valueOf(restParamsObj.get(key));
+                scriptStringBuffer.append("requestParams.put(\"rest." + key + "\",\"" + value + "\");\n");
+            }
+        }
+        return scriptStringBuffer.toString();
     }
 
-    private static void runScript(String script, String scriptLanguage) {
+    private static String runScript(String script, String scriptLanguage) throws ScriptException {
         JSR223Sampler jmeterScriptSampler = new JSR223Sampler();
         jmeterScriptSampler.setScriptLanguage(scriptLanguage);
         jmeterScriptSampler.setScript(script);
-        jmeterScriptSampler.sample(null);
+        SampleResult result = jmeterScriptSampler.sample(null);
+        return result.getResponseDataAsString();
 
     }
 
-    public  static RequestMockParams getParams(String urlParams, String apiPath, JSONObject queryParamsObject,JSON paramJson){
-        RequestMockParams returnParams = getGetParamMap(urlParams,apiPath,queryParamsObject);
-        if(paramJson != null){
+    public static RequestMockParams getParams(String urlParams, String apiPath, JSONObject queryParamsObject, JSON paramJson) {
+        RequestMockParams returnParams = getGetParamMap(urlParams, apiPath, queryParamsObject);
+        if (paramJson != null) {
             if (paramJson instanceof JSONObject) {
-                if(!((JSONObject) paramJson).isEmpty()){
+                if (!((JSONObject) paramJson).isEmpty()) {
                     JSONArray paramsArray = new JSONArray();
                     paramsArray.add(paramJson);
                     returnParams.setBodyParams(paramsArray);
                 }
             } else if (paramJson instanceof JSONArray) {
                 JSONArray paramArray = (JSONArray) paramJson;
-                if(!paramArray.isEmpty()){
+                if (!paramArray.isEmpty()) {
                     returnParams.setBodyParams(paramArray);
                 }
             }
@@ -461,7 +451,7 @@ public class MockApiUtils {
         return returnParams;
     }
 
-    public static JSONObject getParameterJsonObject(HttpServletRequest request){
+    public static JSONObject getParameterJsonObject(HttpServletRequest request) {
         JSONObject queryParamsObject = new JSONObject();
         Enumeration<String> paramNameItor = request.getParameterNames();
         while (paramNameItor.hasMoreElements()) {
@@ -483,32 +473,27 @@ public class MockApiUtils {
     }
 
     public static JSON getPostParamMap(HttpServletRequest request) {
-        if (StringUtils.equalsIgnoreCase("application/JSON", request.getContentType())) {
+        if (StringUtils.startsWithIgnoreCase(request.getContentType(), "application/JSON")) {
             JSON returnJson = null;
             try {
                 String param = getRequestPostStr(request);
-                JSONValidator jsonValidator = JSONValidator.from(param);
-                if (StringUtils.equalsIgnoreCase("Array", jsonValidator.getType().name())) {
-                    returnJson = JSONArray.parseArray(param);
-                } else if (StringUtils.equalsIgnoreCase("Object", jsonValidator.getType().name())) {
-                    returnJson = JSONObject.parseObject(param);
+                if (StringUtils.isNotEmpty(param)) {
+                    JSONValidator jsonValidator = JSONValidator.from(param);
+                    if (StringUtils.equalsIgnoreCase("Array", jsonValidator.getType().name())) {
+                        returnJson = JSONArray.parseArray(param);
+                    } else if (StringUtils.equalsIgnoreCase("Object", jsonValidator.getType().name())) {
+                        returnJson = JSONObject.parseObject(param);
+                    }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                LogUtil.error(e);
             }
             return returnJson;
-        } else if (StringUtils.equalsIgnoreCase("text/xml", request.getContentType())) {
+        } else if (StringUtils.startsWithIgnoreCase(request.getContentType(), "text/xml")) {
             String xmlString = readXml(request);
-
-            org.json.JSONObject xmlJSONObj = XML.toJSONObject(xmlString);
-            String jsonStr = xmlJSONObj.toString();
-            JSONObject object = null;
-            try {
-                object = JSONObject.parseObject(jsonStr);
-            } catch (Exception e) {
-            }
+            JSONObject object = XMLUtils.XmlToJson(xmlString);
             return object;
-        } else if (StringUtils.equalsIgnoreCase("application/x-www-form-urlencoded", request.getContentType())) {
+        } else if (StringUtils.startsWithIgnoreCase(request.getContentType(), "application/x-www-form-urlencoded")) {
             JSONObject object = new JSONObject();
             Enumeration<String> paramNameItor = request.getParameterNames();
             while (paramNameItor.hasMoreElements()) {
@@ -517,19 +502,19 @@ public class MockApiUtils {
                 object.put(key, value);
             }
             return object;
-        } else if (StringUtils.equalsIgnoreCase("text/plain", request.getContentType())) {
+        } else if (StringUtils.startsWithIgnoreCase(request.getContentType(), "text/plain")) {
             JSONObject object = new JSONObject();
             String bodyParam = readBody(request);
-            if(StringUtils.isNotEmpty(bodyParam)){
-                object.put("raw",bodyParam);
+            if (StringUtils.isNotEmpty(bodyParam)) {
+                object.put("raw", bodyParam);
             }
             return object;
 
         } else {
             JSONObject object = new JSONObject();
             String bodyParam = readBody(request);
-            if(StringUtils.isNotEmpty(bodyParam)){
-                object.put("raw",bodyParam);
+            if (StringUtils.isNotEmpty(bodyParam)) {
+                object.put("raw", bodyParam);
             }
             return object;
         }
@@ -560,6 +545,7 @@ public class MockApiUtils {
         }
         return returnJson;
     }
+
     private static String readBody(HttpServletRequest request) {
         String result = "";
         try {
@@ -574,7 +560,7 @@ public class MockApiUtils {
             inputStream.close();
             result = new String(outSteam.toByteArray(), "UTF-8");
         } catch (Exception e) {
-            e.printStackTrace();
+            LogUtil.error(e);
         }
         return result;
     }

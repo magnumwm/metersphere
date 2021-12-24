@@ -37,7 +37,7 @@
         </el-card>
 
 
-        <el-dialog :close-on-click-modal="false" :title="$t('member.modify')" :visible.sync="updateVisible" width="30%"
+        <el-dialog :close-on-click-modal="false" :title="$t('member.modify')" :visible.sync="updateVisible" width="40%"
                    :destroy-on-close="true"
                    @close="handleClose" v-loading="dialogResult.loading">
           <el-form :model="form" label-position="right" label-width="100px" size="small" ref="updateUserForm">
@@ -85,7 +85,6 @@
 import MsRolesTag from "@/business/components/common/components/MsRolesTag";
 import MsTableOperator from "@/business/components/common/components/MsTableOperator";
 import MsTablePagination from "@/business/components/common/pagination/TablePagination";
-import MsCreateBox from "@/business/components/settings/CreateBox";
 import MsTableHeader from "@/business/components/common/components/MsTableHeader";
 import MsDialogFooter from "@/business/components/common/components/MsDialogFooter";
 import MsTableHeaderSelectPopover from "@/business/components/common/components/table/MsTableHeaderSelectPopover";
@@ -105,7 +104,6 @@ export default {
     MsRolesTag,
     MsTableOperator,
     MsTablePagination,
-    MsCreateBox,
     MsTableHeader,
     MsDialogFooter,
     MsTableHeaderSelectPopover,
@@ -215,6 +213,9 @@ export default {
 }
 
 .select-width {
-  width: 100%;
+  width: 80%;
+}
+.el-input{
+  width: 80%;
 }
 </style>

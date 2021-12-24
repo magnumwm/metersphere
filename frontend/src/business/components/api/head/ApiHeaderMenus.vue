@@ -3,7 +3,7 @@
     <el-row type="flex">
       <project-change :project-name="currentProject"/>
       <el-col :span="14">
-        <el-menu class="header-menu" :unique-opened="true" mode="horizontal" router :default-active='$route.path'>
+        <el-menu class="header-menu" :unique-opened="true" mode="horizontal" router :default-active='currentPath'>
 
           <el-menu-item :index="'/api/home'">
             {{ $t("i18n.home") }}
@@ -31,15 +31,15 @@
 import MsRecentList from "../../common/head/RecentList";
 import MsShowAll from "../../common/head/ShowAll";
 import MsCreateButton from "../../common/head/CreateButton";
-import SearchList from "@/business/components/common/head/SearchList";
 import ProjectChange from "@/business/components/common/head/ProjectSwitch";
 import {mapGetters} from "vuex";
 
 export default {
   name: "MsApiHeaderMenus",
-  components: {SearchList, MsCreateButton, MsShowAll, MsRecentList, ProjectChange},
+  components: {MsCreateButton, MsShowAll, MsRecentList, ProjectChange},
   data() {
     return {
+      currentPath: '',
       testRecent: {
         title: this.$t('load_test.recent'),
         url: "/api/recent/5",
@@ -63,6 +63,18 @@ export default {
       apiTestProjectPath: '',
       currentProject: ''
     };
+  },
+  watch: {
+    '$route': {
+      immediate: true,
+      handler(to) {
+        let path = to.path.split("/", 4);
+        this.currentPath = '/' + path[1] + '/' + path[2];
+        if (path[3] === "report") {
+          this.currentPath = this.currentPath + '/' + path[3];
+        }
+      }
+    }
   },
   methods: {
     reload() {

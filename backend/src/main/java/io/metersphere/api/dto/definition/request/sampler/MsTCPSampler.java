@@ -9,11 +9,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.metersphere.api.dto.automation.EsbDataStruct;
 import io.metersphere.api.dto.automation.TcpTreeTableDataStruct;
+import io.metersphere.api.dto.definition.parse.JMeterScriptUtil;
 import io.metersphere.api.dto.definition.request.ElementUtil;
 import io.metersphere.api.dto.definition.request.ParameterConfig;
 import io.metersphere.api.dto.definition.request.processors.pre.MsJSR223PreProcessor;
 import io.metersphere.api.dto.scenario.KeyValue;
 import io.metersphere.api.dto.scenario.environment.EnvironmentConfig;
+import io.metersphere.api.dto.scenario.environment.GlobalScriptFilterRequest;
 import io.metersphere.api.service.ApiDefinitionService;
 import io.metersphere.api.service.ApiTestCaseService;
 import io.metersphere.base.domain.ApiDefinitionWithBLOBs;
@@ -148,10 +150,33 @@ public class MsTCPSampler extends MsTestElement {
             samplerHashTree.add(tcpPreProcessor.getJSR223PreProcessor());
         }
 
+        //处理全局前后置脚本(步骤内)
+        String enviromentId = this.getEnvironmentId();
+        if (enviromentId == null) {
+            enviromentId = this.useEnvironment;
+        }
+        //根据配置将脚本放置在私有脚本之前
+        JMeterScriptUtil.setScript(envConfig, samplerHashTree, GlobalScriptFilterRequest.TCP.name(), enviromentId, config, false);
+
         if (CollectionUtils.isNotEmpty(hashTree)) {
             hashTree.forEach(el -> {
                 el.toHashTree(samplerHashTree, el.getHashTree(), config);
             });
+        }
+        //根据配置将脚本放置在私有脚本之后
+        JMeterScriptUtil.setScript(envConfig, samplerHashTree, GlobalScriptFilterRequest.TCP.name(), enviromentId, config, true);
+    }
+
+    private void addItemHashTree(MsTestElement element, HashTree samplerHashTree, ParameterConfig config) {
+        if (element != null) {
+            if (element.getEnvironmentId() == null) {
+                if (this.getEnvironmentId() == null) {
+                    element.setEnvironmentId(useEnvironment);
+                } else {
+                    element.setEnvironmentId(this.getEnvironmentId());
+                }
+            }
+            element.toHashTree(samplerHashTree, element.getHashTree(), config);
         }
     }
 
@@ -182,7 +207,11 @@ public class MsTCPSampler extends MsTestElement {
                 }
             }
             if (proxy != null) {
-                this.setHashTree(proxy.getHashTree());
+                if (StringUtils.equals(this.getRefType(), "CASE")) {
+                    ElementUtil.mergeHashTree(this, proxy.getHashTree());
+                } else {
+                    this.setHashTree(proxy.getHashTree());
+                }
                 this.setClassname(proxy.getClassname());
                 this.setServer(proxy.getServer());
                 this.setPort(proxy.getPort());
@@ -214,10 +243,6 @@ public class MsTCPSampler extends MsTestElement {
         TCPSampler tcpSampler = new TCPSampler();
         tcpSampler.setEnabled(this.isEnable());
         tcpSampler.setName(this.getName());
-        String name = ElementUtil.getParentName(this.getParent());
-        if (StringUtils.isNotEmpty(name) && !config.isOperating()) {
-            tcpSampler.setName(this.getName() + DelimiterConstants.SEPARATOR.toString() + name);
-        }
         tcpSampler.setProperty("MS-ID", this.getId());
         String indexPath = this.getIndex();
         tcpSampler.setProperty("MS-RESOURCE-ID", this.getResourceId() + "_" + ElementUtil.getFullIndexPath(this.getParent(), indexPath));

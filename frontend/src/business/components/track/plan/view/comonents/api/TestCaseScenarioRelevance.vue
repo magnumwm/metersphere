@@ -37,6 +37,7 @@
   import MsApiScenarioList from "../../../../../api/automation/scenario/ApiScenarioList";
   import MsApiScenarioModule from "../../../../../api/automation/scenario/ApiScenarioModule";
   import RelevanceScenarioList from "./RelevanceScenarioList";
+  import {ENV_TYPE} from "@/common/js/constants";
 
   export default {
     name: "TestCaseScenarioRelevance",
@@ -98,8 +99,8 @@
         this.moduleOptions = data;
       },
 
-      saveCaseRelevance() {
-        const sign = this.$refs.apiScenarioList.checkEnv();
+      async saveCaseRelevance() {
+        const sign = await this.$refs.apiScenarioList.checkEnv();
         if (!sign) {
           return false;
         }
@@ -107,15 +108,38 @@
         let url = '/api/automation/relevance';
         const envMap = this.$refs.apiScenarioList.projectEnvMap;
         let map = this.$refs.apiScenarioList.map;
+        let envType = this.$refs.apiScenarioList.environmentType;
+        let envGroupId = this.$refs.apiScenarioList.envGroupId;
+        if (!map || map.size < 1) {
+          this.$warning(this.$t("api_test.please_select_case"));
+          return false;
+        }
+        if (envType === ENV_TYPE.JSON && (!envMap || envMap.size < 1)) {
+          this.$warning(this.$t("api_test.environment.select_environment"));
+          return false;
+        } else if (envType === ENV_TYPE.GROUP && !envGroupId) {
+          this.$warning(this.$t("api_test.environment.select_environment"));
+          return false;
+        }
         param.planId = this.planId;
         param.mapping = strMapToObj(map);
         param.envMap = strMapToObj(envMap);
+        param.environmentType = envType;
+        param.envGroupId = envGroupId;
 
         this.result = this.$post(url, param, () => {
           this.$success(this.$t('commons.save_success'));
           this.$emit('refresh');
           this.refresh();
+          this.autoCheckStatus();
           this.$refs.baseRelevance.close();
+        });
+      },
+      autoCheckStatus() { //  检查执行结果，自动更新计划状态
+        if (!this.planId) {
+          return;
+        }
+        this.$post('/test/plan/autoCheck/' + this.planId, (response) => {
         });
       },
     }

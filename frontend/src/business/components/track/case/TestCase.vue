@@ -12,14 +12,16 @@
         @createCase="handleCaseSimpleCreate($event, 'add')"
         @refreshAll="refreshAll"
         @enableTrash="enableTrash"
+        @enablePublic="enablePublic"
         :type="'edit'"
         :total='total'
+        :public-total="publicTotal"
         ref="nodeTree"
       />
     </ms-aside-container>
 
     <ms-main-container>
-      <el-tabs v-model="activeName" @tab-click="addTab" @tab-remove="removeTab">
+      <el-tabs v-model="activeName" @tab-click="addTab" @tab-remove="closeConfirm">
         <el-tab-pane name="trash" v-if="trashEnable" :label="$t('commons.trash')">
           <test-case-list
             :checkRedirectID="checkRedirectID"
@@ -31,11 +33,31 @@
             @testCaseCopy="copyTestCase"
             @testCaseDetail="showTestCaseDetail"
             @getTrashList="getTrashList"
+            @getPublicList="getPublicList"
             @refresh="refresh"
             @refreshAll="refreshAll"
             @setCondition="setCondition"
-            @decrease="decrease"
             ref="testCaseTrashList">
+          </test-case-list>
+        </el-tab-pane>
+        <el-tab-pane name="public" v-if="publicEnable" :label="$t('project.case_public')">
+          <test-case-list
+            :checkRedirectID="checkRedirectID"
+            :isRedirectEdit="isRedirectEdit"
+            :tree-nodes="treeNodes"
+            :trash-enable="false"
+            :public-enable="true"
+            @refreshTable="refresh"
+            @testCaseEdit="editTestCase"
+            @testCaseEditShow="editTestCaseShow"
+            @testCaseCopy="copyTestCase"
+            @testCaseDetail="showTestCaseDetail"
+            @getTrashList="getTrashList"
+            @getPublicList="getPublicList"
+            @refresh="refresh"
+            @refreshAll="refreshAll"
+            @setCondition="setCondition"
+            ref="testCasePublicList">
           </test-case-list>
         </el-tab-pane>
         <el-tab-pane name="default" :label="$t('api_test.definition.case_title')">
@@ -58,6 +80,7 @@
               @testCaseCopy="copyTestCase"
               @testCaseDetail="showTestCaseDetail"
               @getTrashList="getTrashList"
+              @getPublicList="getPublicList"
               @refresh="refresh"
               @refreshAll="refreshAll"
               @setCondition="setCondition"
@@ -79,7 +102,7 @@
           :label="item.label"
           :name="item.name"
           closable>
-          <div class="ms-api-scenario-div">
+          <div class="ms-api-scenario-div" v-if="!showPublic">
             <test-case-edit
               :currentTestCaseInfo="item.testCaseInfo"
               @refresh="refreshTable"
@@ -93,6 +116,22 @@
               @addTab="addTab"
               ref="testCaseEdit">
             </test-case-edit>
+          </div>
+          <div class="ms-api-scenario-div" v-if="showPublic">
+            <test-case-edit-show
+              :currentTestCaseInfo="item.testCaseInfo"
+              @refresh="refreshTable"
+              @caseEdit="handleCaseCreateOrEdit($event,'edit')"
+              @caseCreate="handleCaseCreateOrEdit($event,'add')"
+              :read-only="testCaseReadOnly"
+              :tree-nodes="treeNodes"
+              :select-node="selectNode"
+              :select-condition="condition"
+              :type="type"
+              :is-public="publicEnable"
+              @addTab="addTabShow"
+              ref="testCaseEditShow">
+            </test-case-edit-show>
           </div>
         </el-tab-pane>
         <el-tab-pane name="add" v-if="hasPermission('PROJECT_TRACK_CASE:READ+CREATE')">
@@ -133,13 +172,14 @@ import SelectMenu from "../common/SelectMenu";
 import MsContainer from "../../common/components/MsContainer";
 import MsAsideContainer from "../../common/components/MsAsideContainer";
 import MsMainContainer from "../../common/components/MsMainContainer";
-import {getCurrentProjectID, getUUID, hasPermission} from "@/common/js/utils";
+import {getCurrentProjectID, getCurrentWorkspaceId, getUUID, hasPermission, setCurTabId} from "@/common/js/utils";
 import TestCaseNodeTree from "../common/TestCaseNodeTree";
 
 import MsTabButton from "@/business/components/common/components/MsTabButton";
 import TestCaseMinder from "@/business/components/track/common/minder/TestCaseMinder";
 import IsChangeConfirm from "@/business/components/common/components/IsChangeConfirm";
-
+import {openMinderConfirm, saveMinderConfirm} from "@/business/components/track/common/minder/minderUtils";
+import TestCaseEditShow from "@/business/components/track/case/components/TestCaseEditShow";
 export default {
   name: "TestCase",
   components: {
@@ -148,7 +188,7 @@ export default {
     MsTabButton,
     TestCaseNodeTree,
     MsMainContainer,
-    MsAsideContainer, MsContainer, TestCaseList, NodeTree, TestCaseEdit, SelectMenu
+    MsAsideContainer, MsContainer, TestCaseList, NodeTree, TestCaseEdit, SelectMenu, TestCaseEditShow
   },
   comments: {},
   data() {
@@ -158,6 +198,8 @@ export default {
       treeNodes: [],
       testCaseReadOnly: true,
       trashEnable: false,
+      publicEnable: false,
+      showPublic: false,
       condition: {},
       activeName: 'default',
       tabs: [],
@@ -166,12 +208,27 @@ export default {
       type: '',
       activeDom: 'left',
       tmpActiveDom: null,
-      total: 0
+      total: 0,
+      publicTotal: 0,
+      tmpPath: null
     };
   },
   mounted() {
     this.getProject();
-    this.init(this.$route);
+    let routeTestCase = this.$route.params.testCase;
+    if(routeTestCase && routeTestCase.add===true){
+      this.addTab({name: 'add'});
+    }else {
+      this.init(this.$route);
+    }
+  },
+  beforeRouteLeave(to, from, next) {
+    if (this.$store.state.isTestCaseMinderChanged) {
+      this.$refs.isChangeConfirm.open();
+      this.tmpPath = to.path;
+    } else {
+      next();
+    }
   },
   watch: {
     redirectID() {
@@ -181,14 +238,7 @@ export default {
         this.renderComponent = true;
       });
     },
-    '$route'(to, from) {
-      if (to.path.indexOf('/track/case/all') == -1) {
-        if (this.$refs && this.$refs.autoScenarioConfig) {
-          this.$refs.autoScenarioConfig.forEach(item => {
-            /*item.removeListener();*/
-          });
-        }
-      }
+    '$route'(to) {
       this.init(to);
     },
     activeName(newVal, oldVal) {
@@ -203,10 +253,17 @@ export default {
         }
       });
     },
-    trashEnable(){
-      if(this.trashEnable){
+    trashEnable() {
+      if (this.trashEnable) {
         this.activeName = 'trash';
-      }else {
+      } else {
+        this.activeName = 'default';
+      }
+    },
+    publicEnable() {
+      if (this.publicEnable) {
+        this.activeName = 'public';
+      } else {
         this.activeName = 'default';
       }
     }
@@ -250,36 +307,27 @@ export default {
           break;
       }
     },
-    getTrashList(){
-      this.$get("/case/node/trashCount/"+this.projectId , response => {
+    getTrashList() {
+      this.$get("/case/node/trashCount/" + this.projectId, response => {
         this.total = response.data;
       });
     },
+    getPublicList() {
+      this.$get("/case/node/publicCount/" + getCurrentWorkspaceId(), response => {
+        this.publicTotal = response.data;
+      });
+    },
     updateActiveDom(activeDom) {
-      let isTestCaseMinderChanged = this.$store.state.isTestCaseMinderChanged;
-      if (this.activeDom !== 'left' && activeDom === 'left' && isTestCaseMinderChanged) {
-        this.$refs.isChangeConfirm.open();
-        this.tmpActiveDom = activeDom;
-        return;
-      }
-      this.activeDom = activeDom;
+      openMinderConfirm(this, activeDom);
     },
     changeConfirm(isSave) {
-      if (isSave) {
-        this.$refs.minder.save(window.minder.exportJson());
-      } else {
-        this.$store.commit('setIsTestCaseMinderChanged', false);
-      }
-      this.$nextTick(() => {
-        this.activeDom = this.tmpActiveDom;
-      });
+      saveMinderConfirm(this, isSave);
     },
     changeRedirectParam(redirectIDParam) {
       this.redirectID = redirectIDParam;
       if (redirectIDParam != null) {
         if (this.redirectFlag == "none") {
           this.activeName = "default";
-          this.addListener();
           this.redirectFlag = "redirected";
         }
       } else {
@@ -291,6 +339,7 @@ export default {
         this.$warning(this.$t('commons.check_project_tip'));
         return;
       }
+      this.showPublic = false
       if (tab.name === 'add') {
         let label = this.$t('test_track.case.create');
         let name = getUUID().substring(0, 8);
@@ -305,23 +354,72 @@ export default {
         label = tab.testCaseInfo.name;
         this.tabs.push({label: label, name: name, testCaseInfo: tab.testCaseInfo});
       }
-      if (this.$refs && this.$refs.testCaseEdit) {
-        this.$refs.testCaseEdit.forEach(item => {
-          /* item.removeListener();*/
-        });  //  删除所有tab的 ctrl + s 监听
-        this.addListener();
+
+      setCurTabId(this, tab, 'testCaseEdit');
+    },
+    addTabShow(tab) {
+      if (!this.projectId) {
+        this.$warning(this.$t('commons.check_project_tip'));
+        return;
       }
+      if (tab.name === 'show') {
+        this.showPublic = true
+        let label = this.$t('test_track.case.create');
+        let name = getUUID().substring(0, 8);
+        this.activeName = name;
+        label = tab.testCaseInfo.name;
+        this.tabs.push({label: label, name: name, testCaseInfo: tab.testCaseInfo});
+      }
+      setCurTabId(this, tab, 'testCaseEditShow');
     },
     handleTabClose() {
-      this.tabs = [];
-      this.activeName = "default";
-      this.refresh();
+      let message = "";
+      this.tabs.forEach(t => {
+        if (t && this.$store.state.testCaseMap.has(t.testCaseInfo.id) && this.$store.state.testCaseMap.get(t.testCaseInfo.id) > 1) {
+          message += t.testCaseInfo.name + "，";
+        }
+      })
+      if (message !== "") {
+        this.$alert(this.$t('commons.track') + " [ " + message.substr(0, message.length - 1) + " ] " + this.$t('commons.confirm_info'), '', {
+          confirmButtonText: this.$t('commons.confirm'),
+          cancelButtonText: this.$t('commons.cancel'),
+          callback: (action) => {
+            if (action === 'confirm') {
+              this.$store.state.testCaseMap.clear();
+              this.tabs = [];
+              this.activeName = "default";
+              this.refresh();
+            }
+          }
+        });
+      } else {
+        this.tabs = [];
+        this.activeName = "default";
+        this.refresh();
+      }
+    },
+    closeConfirm(targetName) {
+      let t = this.tabs.filter(tab => tab.name === targetName);
+      if (t && this.$store.state.testCaseMap.has(t[0].testCaseInfo.id) && this.$store.state.testCaseMap.get(t[0].testCaseInfo.id) > 1) {
+        this.$alert(this.$t('commons.track') + " [ " + t[0].testCaseInfo.name + " ] " + this.$t('commons.confirm_info'), '', {
+          confirmButtonText: this.$t('commons.confirm'),
+          cancelButtonText: this.$t('commons.cancel'),
+          callback: (action) => {
+            if (action === 'confirm') {
+              this.$store.state.testCaseMap.delete(t[0].testCaseInfo.id);
+              this.removeTab(targetName);
+            }
+          }
+        });
+      } else {
+        this.$store.state.testCaseMap.delete(t[0].testCaseInfo.id);
+        this.removeTab(targetName);
+      }
     },
     removeTab(targetName) {
       this.tabs = this.tabs.filter(tab => tab.name !== targetName);
       if (this.tabs.length > 0) {
         this.activeName = this.tabs[this.tabs.length - 1].name;
-        this.addListener(); //  自动切换当前标签时，也添加监听
       } else {
         this.activeName = "default";
       }
@@ -332,16 +430,6 @@ export default {
         return;
       }
       this.$refs.testCaseList.exportTestCase(type);
-    },
-    addListener() {
-      let index = this.tabs.findIndex(item => item.name === this.activeName); //  找到当前选中tab的index
-      if (index != -1) {   //  为当前选中的tab添加监听
-        this.$nextTick(() => {
-          /*
-                    this.$refs.testCaseEdit[index].addListener();
-          */
-        });
-      }
     },
     init(route) {
       let path = route.path;
@@ -369,6 +457,8 @@ export default {
     nodeChange(node) {
       this.condition.trashEnable = false;
       this.trashEnable = false;
+      this.condition.publicEnable = false;
+      this.publicEnable = false;
       this.activeName = "default";
     },
     refreshTable(data) {
@@ -385,17 +475,41 @@ export default {
       this.$refs.nodeTree.decrease(id);
     },
     editTestCase(testCase) {
-      this.type = "edit";
-      this.testCaseReadOnly = false;
-      if (testCase.label !== "redirect") {
-        if (this.treeNodes.length < 1) {
-          this.$warning(this.$t('test_track.case.create_module_first'));
-          return;
+      const index = this.tabs.find(p => p.testCaseInfo && p.testCaseInfo.id === testCase.id);
+      if (!index) {
+        this.type = "edit";
+        this.testCaseReadOnly = false;
+        if (testCase.label !== "redirect") {
+          if (this.treeNodes.length < 1) {
+            this.$warning(this.$t('test_track.case.create_module_first'));
+            return;
+          }
         }
+        let hasEditPermission = hasPermission('PROJECT_TRACK_CASE:READ+EDIT');
+        this.$set(testCase, 'rowClickHasPermission', hasEditPermission);
+        this.addTab({name: 'edit', testCaseInfo: testCase});
+      } else {
+        this.activeName = index.name;
       }
-      let hasEditPermission = hasPermission('PROJECT_TRACK_CASE:READ+EDIT');
-      this.$set(testCase, 'rowClickHasPermission', hasEditPermission);
-      this.addTab({name: 'edit', testCaseInfo: testCase});
+    },
+
+    editTestCaseShow(testCase) {
+      const index = this.tabs.find(p => p.testCaseInfo && p.testCaseInfo.id === testCase.id);
+      if (!index) {
+        this.type = "edit";
+        this.testCaseReadOnly = false;
+        if (testCase.label !== "redirect") {
+          if (this.treeNodes.length < 1) {
+            this.$warning(this.$t('test_track.case.create_module_first'));
+            return;
+          }
+        }
+        let hasEditPermission = hasPermission('PROJECT_TRACK_CASE:READ+EDIT');
+        this.$set(testCase, 'rowClickHasPermission', hasEditPermission);
+        this.addTabShow({name: 'show', testCaseInfo: testCase});
+      } else {
+        this.activeName = index.name;
+      }
     },
     handleCaseCreateOrEdit(data, type) {
       if (this.$refs.minder) {
@@ -472,13 +586,17 @@ export default {
       this.$get("/project/get/" + this.projectId, result => {
         let data = result.data;
         if (data) {
-          this.$store.commit('setCurrentProjectIsCustomNum',  data.customNum);
+          this.$store.commit('setCurrentProjectIsCustomNum', data.customNum);
         }
       });
     },
     enableTrash(data) {
       this.initApiTableOpretion = "trashEnable";
       this.trashEnable = data;
+    },
+    enablePublic(data) {
+      this.initApiTableOpretion = "publicEnable";
+      this.publicEnable = data;
     },
   }
 };
@@ -490,13 +608,16 @@ export default {
   padding: 5px 10px;
 }
 
-/deep/ .el-button-group > .el-button:first-child {
-  padding: 4px 1px !important;
-}
-
 /deep/ .el-tabs__header {
   margin: 0 0 0px;
   /*width: calc(100% - 90px);*/
+}
+
+/deep/ .el-table__empty-block {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  padding-right: 100%;
 }
 
 </style>

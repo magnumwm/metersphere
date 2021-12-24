@@ -21,7 +21,7 @@
         </el-select>
       </el-col>
       <el-col :span="4">
-        <ms-mock :disabled="pickValue.type==='object' || pickValue.type==='array'" :schema="pickValue"/>
+        <ms-mock :disabled="pickValue.type==='object' || pickValue.type==='array' || pickValue.type==='null'" :schema="pickValue"/>
       </el-col>
       <el-col :span="4">
         <el-input v-model="pickValue.description" class="ms-col-title" :placeholder="$t('schema.description')" size="small"/>
@@ -49,7 +49,7 @@
     <!-- 高级设置-->
     <el-dialog append-to-body :close-on-click-modal="true" :title="$t('schema.adv_setting')" :visible.sync="modalVisible" :destroy-on-close="true"
                @close="handleClose">
-      <p class="tip">基础设置 </p>
+      <p class="tip">{{ $t("schema.base_setting") }} </p>
 
       <el-form label-position="left" label-width="100px" v-model="advancedValue" class="ms-advanced-search-form">
            <div :span="8" v-for="(item,key) in advancedValue" :key="key">

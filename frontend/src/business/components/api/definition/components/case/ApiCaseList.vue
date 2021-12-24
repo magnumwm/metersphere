@@ -158,6 +158,7 @@ export default {
         }
         this.api.method = apiCase.request.method
         this.api.name = apiCase.request.name;
+        this.api.path = apiCase.request.path;
       }
       if (apiCase.tags) {
         apiCase.tags = JSON.parse(apiCase.tags);
@@ -178,6 +179,12 @@ export default {
       this.visible = true;
     },
     saveApiAndCase(api) {
+      if (api && api.url) {
+        api.url = undefined;
+      }
+      if (api && api.request && api.request.url) {
+        api.request.url = undefined;
+      }
       this.visible = true;
       this.api = api;
       this.currentApi = api;
@@ -250,10 +257,18 @@ export default {
       if (apiCase && apiCase.request && apiCase.request.useEnvironment) {
         this.environment = apiCase.request.useEnvironment;
       }
+      if (apiCase.request && apiCase.request.hashTree) {
+        apiCase.request.hashTree.forEach(item => {
+          if (item.type === "Assertions" && !item.document) {
+            item.document = {type: "JSON", data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}};
+          }
+        })
+      }
     },
     getTestCase() {
       return new Promise((resolve) => {
-        this.environment = "";
+        let commonUseEnvironment = this.$store.state.useEnvironment;
+        this.environment = commonUseEnvironment ? commonUseEnvironment : "";
         this.result = this.$get("/api/testcase/findById/" + this.testCaseId, response => {
           let apiCase = response.data;
           if (apiCase) {

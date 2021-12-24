@@ -10,7 +10,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.extractor.JSR223PostProcessor;
 import org.apache.jmeter.extractor.RegexExtractor;
-import org.apache.jmeter.extractor.XPath2Extractor;
+import org.apache.jmeter.extractor.XPathExtractor;
 import org.apache.jmeter.extractor.json.jsonpath.JSONPostProcessor;
 import org.apache.jmeter.save.SaveService;
 import org.apache.jmeter.testelement.TestElement;
@@ -66,7 +66,7 @@ public class MsExtract extends MsTestElement {
             shell.setProperty(TestElement.TEST_CLASS, JSR223PostProcessor.class.getName());
             shell.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("TestBeanGUI"));
             shell.setProperty("cacheKey", false);
-            shell.setProperty("script", "io.metersphere.api.jmeter.JMeterVars.addVars(prev.hashCode(),vars," + "\"" + extract.toString() + "\"" + ");");
+            shell.setProperty("script", "io.metersphere.utils.JMeterVars.addVars(prev.hashCode(),vars," + "\"" + extract.toString() + "\"" + ");");
             samplerHashTree.add(shell);
         }
     }
@@ -94,16 +94,16 @@ public class MsExtract extends MsTestElement {
         return extractor;
     }
 
-    private XPath2Extractor xPath2Extractor(MsExtractXPath extractXPath, StringJoiner extract) {
-        XPath2Extractor extractor = new XPath2Extractor();
+    private XPathExtractor xPath2Extractor(MsExtractXPath extractXPath, StringJoiner extract) {
+        XPathExtractor extractor = new XPathExtractor();
         extractor.setEnabled(this.isEnable());
+        extractor.setTolerant(true);
         extractor.setName(StringUtils.isNotEmpty(extractXPath.getVariable()) ? extractXPath.getVariable() : this.getName());
         if(StringUtils.isEmpty(extractor.getName())){
             extractor.setName("XPath2Extractor");
         }
-        /*extractor.setName(StringUtils.isNotEmpty(this.getName()) ? this.getName() : " XPath2Extractor");*/
-        extractor.setProperty(TestElement.TEST_CLASS, XPath2Extractor.class.getName());
-        extractor.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("XPath2ExtractorGui"));
+        extractor.setProperty(TestElement.TEST_CLASS, XPathExtractor.class.getName());
+        extractor.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("XPathExtractorGui"));
         extractor.setRefName(extractXPath.getVariable());
         extractor.setXPathQuery(extractXPath.getExpression());
         if (extractXPath.isMultipleMatching()) {
@@ -125,6 +125,7 @@ public class MsExtract extends MsTestElement {
         extractor.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("JSONPostProcessorGui"));
         extractor.setRefNames(extractJSONPath.getVariable());
         extractor.setJsonPathExpressions(extractJSONPath.getExpression());
+        extractor.setComputeConcatenation(true);
         if (extractJSONPath.isMultipleMatching()) {
             extractor.setMatchNumbers("-1");
         }

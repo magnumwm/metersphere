@@ -66,7 +66,7 @@
 import MsEditDialog from "@/business/components/common/components/MsEditDialog";
 import MsTable from "@/business/components/common/components/table/MsTable";
 import MsTableColumn from "@/business/components/common/components/table/MsTableColumn";
-import {getRelateIssues, testCaseIssueRelate} from "@/network/Issue";
+import {getRelateIssues, isThirdPartEnable, testCaseIssueRelate} from "@/network/Issue";
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import {ISSUE_STATUS_MAP} from "@/common/js/table-constants";
 import MsTablePagination from "@/business/components/common/pagination/TablePagination";
@@ -78,7 +78,8 @@ export default {
   data() {
     return {
       page: getPageInfo(),
-      visible: false
+      visible: false,
+      isThirdPart: false
     }
   },
   computed: {
@@ -89,7 +90,12 @@ export default {
       return getCurrentProjectID();
     }
   },
-  props: ['caseId', 'isThirdPart'],
+  props: ['caseId'],
+  created() {
+    isThirdPartEnable((data) => {
+      this.isThirdPart = data;
+    });
+  },
   methods: {
     open() {
       this.getIssues();
@@ -107,7 +113,7 @@ export default {
       param.caseId = this.caseId;
       testCaseIssueRelate(param, () => {
         this.visible = false;
-        this.$emit('refresh');
+        this.$emit('refresh', this.$refs.table.selectRows);
       });
     }
   }

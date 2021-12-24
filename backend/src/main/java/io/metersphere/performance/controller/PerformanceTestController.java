@@ -20,6 +20,7 @@ import io.metersphere.dto.LoadTestDTO;
 import io.metersphere.dto.ScheduleDao;
 import io.metersphere.log.annotation.MsAuditLog;
 import io.metersphere.notice.annotation.SendNotice;
+import io.metersphere.performance.dto.LoadModuleDTO;
 import io.metersphere.performance.dto.LoadTestExportJmx;
 import io.metersphere.performance.request.*;
 import io.metersphere.performance.service.PerformanceTestService;
@@ -197,7 +198,7 @@ public class PerformanceTestController {
         byte[] bytes = fileService.loadFileAsBytes(fileOperationRequest.getId());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/octet-stream"))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileOperationRequest.getName() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileOperationRequest.getId()+".jmx" + "\"")
                 .body(bytes);
     }
 
@@ -246,5 +247,15 @@ public class PerformanceTestController {
     @GetMapping("test/follow/{testId}")
     public List<String> getFollows(@PathVariable String testId) {
         return performanceTestService.getFollows(testId);
+    }
+
+    @PostMapping("test/update/follows/{testId}")
+    public void saveFollows(@PathVariable String testId, @RequestBody List<String> follows) {
+        performanceTestService.saveFollows(testId, follows);
+    }
+
+    @GetMapping("module/list/plan/{planId}")
+    public List<LoadModuleDTO> getNodeByPlanId(@PathVariable String planId) {
+        return performanceTestService.getNodeByPlanId(planId);
     }
 }

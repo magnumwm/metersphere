@@ -1,8 +1,10 @@
 package io.metersphere.api.dto;
 
-import io.metersphere.api.dto.automation.RunModeConfig;
+import io.metersphere.dto.RunModeConfigDTO;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.Map;
 
 @Getter
 @Setter
@@ -18,5 +20,7 @@ public class RunRequest {
     private String jmx;
     // 集成报告ID
     private String amassReport;
-    private RunModeConfig config;
+    private RunModeConfigDTO config;
+
+    private Map<String, Object> kafka;
 }

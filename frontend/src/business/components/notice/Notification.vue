@@ -10,7 +10,7 @@
           <template v-slot:content>
             <span>{{ $t('commons.notice_center') }}</span>
           </template>
-          <div @click="showNoticeCenter" v-if="noticeCount > 0">
+          <div @click="showNoticeCenter" v-if="noticeCount > 0 || noticeShow">
             <el-badge is-dot class="item" type="danger">
               <font-awesome-icon class="icon global focusing" :icon="['fas', 'bell']"/>
             </el-badge>
@@ -21,7 +21,7 @@
     </el-menu>
 
     <el-drawer :visible.sync="taskVisible" :destroy-on-close="true" direction="rtl"
-               :withHeader="true" :modal="false" :title="$t('commons.notice_center')" size="600px"
+               :withHeader="true" :modal="false" :title="$t('commons.notice_center')" size="550px"
                custom-class="ms-drawer-task">
       <div style="margin: 0px 20px 0px">
         <el-tabs :active-name="activeName">
@@ -78,6 +78,7 @@ export default {
       goPage: 1,
       totalPage: 0,
       totalCount: 0,
+      noticeShow: false,
     };
   },
   props: {
@@ -151,6 +152,7 @@ export default {
     },
     readAll() {
       this.$get('/notification/read/all');
+      this.noticeShow = false;
     },
     getNotifications() {
       this.initWebSocket();
@@ -163,7 +165,7 @@ export default {
           if (now - d.createTime > 10 * 1000) {
             return;
           }
-          d.user = this.userMap[d.operator];
+          d.user = this.userMap[d.operator] || {name: 'MS'};
           let message = d.user.name + getOperation(d.operation) + getResource(d) + ": " + d.resourceName;
           let title = d.type === 'MENTIONED_ME' ? this.$t('commons.mentioned_me_notice') : this.$t('commons.system_notice');
           setTimeout(() => {
@@ -172,6 +174,9 @@ export default {
               type: 'info',
               message: message,
             });
+            // 弹出之后标记成已读
+            this.$get('/notification/read/' + d.id);
+            this.noticeShow = true;
           });
         });
       });

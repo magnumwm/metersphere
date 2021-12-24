@@ -9,6 +9,7 @@
         :progress-enable="false"
         :tags="tags"
         :height="height"
+        :move-enable="moveEnable"
         :tag-edit-check="tagEditCheck"
         :priority-disable-check="priorityDisableCheck"
         :distinct-tags="distinctTags"
@@ -69,7 +70,17 @@ export default {
     priorityDisableCheck: Function,
     disabled: Boolean,
     ignoreNum: Boolean,
-    showModuleTag: Boolean
+    showModuleTag: Boolean,
+    moduleDisable: {
+      type: Boolean,
+      default() {
+        return true;
+      }
+    },
+    moveEnable: {
+      type: Boolean,
+      default: true
+    },
   },
   data() {
     return {
@@ -80,6 +91,7 @@ export default {
             disable: true,
             id: "root",
             type: 'node',
+            level: 0,
             resource: this.showModuleTag ? ['模块'] : [],
             path: "",
             tagEnable: this.tagEnable
@@ -150,8 +162,9 @@ export default {
           data: {
             text: item.name,
             id: item.id,
-            disable: true,
+            disable: this.moduleDisable,
             type: 'node',
+            level: item.level,
             resource: this.showModuleTag ? ['模块'] : [],
             caseNum: item.caseNum,
             path: root.data.path + "/" + item.name,
@@ -206,9 +219,10 @@ export default {
           data: {
             text: nodeData.name,
             id: nodeData.id,
-            disable: true,
+            disable: this.moduleDisable,
             tagEnable: this.tagEnable,
             type: 'node',
+            level: nodeData.level,
             resource: this.showModuleTag ? ['模块'] : [],
           },
           children: []

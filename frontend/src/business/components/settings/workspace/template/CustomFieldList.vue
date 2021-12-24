@@ -1,5 +1,5 @@
 <template>
-  <el-card>
+  <el-card class="table-card">
 
     <template v-slot:header>
       <ms-table-header :condition.sync="condition" @search="getCustomFields" @create="handleCreate"
@@ -45,7 +45,7 @@
           :fields-width="fieldsWidth"
           prop="scene">
           <template v-slot="scope">
-            <span>{{ sceneMap[scope.row.scene] }}</span>
+            <span>{{ $t(sceneMap[scope.row.scene]) }}</span>
           </template>
         </ms-table-column>
 
@@ -56,7 +56,7 @@
           :fields-width="fieldsWidth"
           prop="type">
           <template v-slot="scope">
-            <span>{{ fieldTypeMap[scope.row.type] }}</span>
+            <span>{{ $t(fieldTypeMap[scope.row.type]) }}</span>
           </template>
         </ms-table-column>
 
@@ -120,7 +120,7 @@
 
 <script>
 import MsTable from "@/business/components/common/components/table/MsTable";
-import {getCurrentWorkspaceId, getDefaultTableHeight} from "@/common/js/utils";
+import {getCurrentWorkspaceId, getDefaultTableHeight, getTranslateOptions} from "@/common/js/utils";
 import MsTableColumn from "@/business/components/common/components/table/MsTableColumn";
 import MsTableOperators from "@/business/components/common/components/MsTableOperators";
 import MsTableButton from "@/business/components/common/components/MsTableButton";
@@ -168,18 +168,16 @@ export default {
           isDisable: this.systemDisable
         }
       ],
+      fieldFilters: [],
+      sceneFilters: [],
     };
   },
   activated() {
     this.getCustomFields();
+    this.fieldFilters = getTranslateOptions(CUSTOM_FIELD_TYPE_OPTION);
+    this.sceneFilters = getTranslateOptions(CUSTOM_FIELD_SCENE_OPTION);
   },
   computed: {
-    fieldFilters() {
-      return CUSTOM_FIELD_TYPE_OPTION;
-    },
-    sceneFilters() {
-      return CUSTOM_FIELD_SCENE_OPTION;
-    },
     fieldTypeMap() {
       return FIELD_TYPE_MAP;
     },

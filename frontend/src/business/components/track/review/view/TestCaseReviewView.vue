@@ -17,7 +17,7 @@
       </template>
     </ms-test-plan-header-bar>
     <test-review-function v-if="activeIndex === 'functional'" :redirectCharType="redirectCharType"
-                          :clickType="clickType" :review-id="reviewId"></test-review-function>
+                          :clickType="clickType" :review-id="reviewId" ref="testReviewFunction"/>
   </div>
 
 </template>
@@ -29,7 +29,6 @@ import MsMainContainer from "../../../common/components/MsMainContainer";
 import MsAsideContainer from "../../../common/components/MsAsideContainer";
 import MsContainer from "../../../common/components/MsContainer";
 import NodeTree from "../../common/NodeTree";
-import TestReviewTestCaseList from "./components/TestReviewTestCaseList";
 import SelectMenu from "../../common/SelectMenu";
 import TestReviewRelevance from "./components/TestReviewRelevance";
 import MsTestPlanHeaderBar from "@/business/components/track/plan/view/comonents/head/TestPlanHeaderBar";
@@ -48,7 +47,6 @@ export default {
     MsAsideContainer,
     MsContainer,
     NodeTree,
-    TestReviewTestCaseList,
     TestReviewRelevance,
     SelectMenu
   },
@@ -87,6 +85,13 @@ export default {
   mounted() {
     this.initData();
     this.openTestCaseEdit(this.$route.path);
+  },
+  beforeRouteLeave(to, from, next) {
+    if (!this.$refs.testReviewFunction) {
+      next();
+    } else if (this.$refs.testReviewFunction.handleBeforeRouteLeave(to)) {
+      next();
+    }
   },
   watch: {
     '$route'(to, from) {
@@ -177,7 +182,7 @@ export default {
 }
 
 /deep/ .ms-aside-container {
-  height: calc(100vh - 80px - 53px);
+  height: calc(100vh - 80px - 53px) !important;
   margin-top: 1px;
 }
 

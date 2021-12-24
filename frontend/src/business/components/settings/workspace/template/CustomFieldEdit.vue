@@ -7,7 +7,7 @@
     append-to-body
     ref="msEditDialog">
 
-    <el-form :model="form" :rules="rules" label-position="right" label-width="auto" size="small" ref="form">
+    <el-form :model="form" :rules="rules" label-position="right" size="small" ref="form">
       <el-form-item :label="$t('custom_field.field_name')" prop="name" :label-width="labelWidth">
         <el-input v-if="isSystem" :disabled="isSystem" :value="$t(systemNameMap[form.name])" autocomplete="off"></el-input>
         <el-input v-else v-model="form.name" autocomplete="off"></el-input>
@@ -20,9 +20,9 @@
       <el-form-item :label="$t('custom_field.scene')" prop="type" :label-width="labelWidth">
         <el-select :disabled="isSystem || isTemplateEdit" filterable v-model="form.scene" :placeholder="$t('custom_field.scene')">
           <el-option
-            v-for="item in sceneOptions"
+            v-for="item in (form.scene === 'PLAN' ? planSceneOptions : sceneOptions)"
             :key="item.value"
-            :label="item.text"
+            :label="$t(item.text)"
             :value="item.value">
           </el-option>
         </el-select>
@@ -33,7 +33,7 @@
           <el-option
             v-for="item in fieldTypeOptions"
             :key="item.value"
-            :label="item.text"
+            :label="$t(item.text)"
             :value="item.value">
           </el-option>
         </el-select>
@@ -59,10 +59,19 @@ import MsEditDialog from "@/business/components/common/components/MsEditDialog";
 import MsSingleHandleDrag from "@/business/components/common/components/MsSingleHandleDrag";
 import {getCurrentWorkspaceId} from "@/common/js/utils";
 import {CUSTOM_FIELD_SCENE_OPTION, CUSTOM_FIELD_TYPE_OPTION, SYSTEM_FIELD_NAME_MAP} from "@/common/js/table-constants";
+import i18n from "@/i18n/i18n";
 export default {
   name: "CustomFieldEdit",
   components: {MsSingleHandleDrag, MsEditDialog},
-  props: ['scene','labelWidth'],
+  props: {
+    scene: String,
+    labelWidth: {
+      Object: String,
+      default() {
+        return '100px';
+      }
+    }
+  },
   data() {
     return {
       form: {
@@ -91,6 +100,11 @@ export default {
     },
     sceneOptions() {
       return CUSTOM_FIELD_SCENE_OPTION;
+    },
+    planSceneOptions() {
+      let tmp = [...CUSTOM_FIELD_SCENE_OPTION];
+      tmp.push( {value: 'PLAN',text: i18n.t('workstation.table_name.track_plan')});// 创建和编辑不能选测试计划
+      return tmp;
     },
     showOptions() {
       if (['select', 'multipleSelect', 'radio', 'checkbox'].indexOf(this.form.type) > -1) {
