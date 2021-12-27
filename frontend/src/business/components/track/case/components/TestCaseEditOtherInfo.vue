@@ -25,28 +25,6 @@
       </el-col>
     </el-tab-pane>
 
-    <el-tab-pane :label="$t('test_track.case.relate_issue')" name="bugs">
-      <el-col :span="7">
-        <el-form-item :label="$t('test_track.related_requirements')" :label-width="labelWidth"
-                      prop="demandId">
-          <el-select filterable :disabled="readOnly" v-model="form.demandId" @visible-change="visibleChange"
-                     :placeholder="$t('test_track.please_related_requirements')" class="ms-case-input">
-            <el-option
-              v-for="item in demandOptions"
-              :key="item.id"
-              :label="item.platform + ': '+item.name"
-              :value="item.id">
-            </el-option>
-          </el-select>
-        </el-form-item>
-      </el-col>
-      <el-col :span="7">
-        <el-form-item :label="$t('test_track.case.demand_name_id')" :label-width="labelWidth" prop="demandName"
-                      v-if="form.demandId=='other'">
-          <el-input :disabled="readOnly" v-model="form.demandName"></el-input>
-        </el-form-item>
-      </el-col>
-    </el-tab-pane>
 
     <el-tab-pane :label="$t('test_track.case.relate_issue')" name="bug">
       <test-case-issue-relate

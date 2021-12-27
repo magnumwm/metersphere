@@ -1,6 +1,6 @@
 <template>
   <span>
-     <el-select v-if="data.type === 'select' || data.type === 'multipleSelect'"
+    <el-select v-if="data.type === 'select' || data.type === 'multipleSelect'"
                 :disabled="disabled"
                 :multiple="data.type === 'multipleSelect'"
                 @change="handleChange"
@@ -10,7 +10,7 @@
         :key="index"
         @change="handleChange"
         :label="getTranslateOption(item)"
-        :value="item.value">
+        :value="index">
       </el-option>
     </el-select>
 
@@ -140,6 +140,7 @@ export default {
     },
     handleChange() {
       if (this.form) {
+        console.log(this.data[this.prop])
         this.$set(this.form, this.data.name, this.data[this.prop]);
       }
     },

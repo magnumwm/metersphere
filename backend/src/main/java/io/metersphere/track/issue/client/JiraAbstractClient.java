@@ -48,8 +48,8 @@ public abstract class JiraAbstractClient extends BaseClient {
         return fields;
     }
 
-    public List<JiraUser> getAssignableUser(String projectKey) {
-        String url = getBaseUrl() + "/user/assignable/search?project={1}";
+    public List<JiraUser> getAssignableUser(String projectKey, int startAt, int maxResults) {
+        String url = getBaseUrl() + "/user/assignable/search?project={1}" + "&maxResults=" + maxResults + "&startAt=" + startAt;
         ResponseEntity<String> response = null;
         try {
             response = restTemplate.exchange(url, HttpMethod.GET, getAuthHttpEntity(), String.class, projectKey);

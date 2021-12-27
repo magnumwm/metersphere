@@ -516,7 +516,18 @@ public class JiraPlatform extends AbstractIssuePlatform {
     }
 
     private String getUserOptions(String projectKey) {
-        List<JiraUser> userOptions = jiraClientV2.getAssignableUser(projectKey);
+        int maxResults = 50, startAt = 0;
+        List<JiraUser> jiraUserList;
+        List<JiraUser> userOptions = new ArrayList<>();
+        do {
+            jiraUserList = jiraClientV2.getAssignableUser(projectKey, startAt, maxResults);
+            if (jiraUserList.size() !=0 ) {
+                startAt += maxResults;
+                userOptions.addAll(jiraUserList);
+            }
+        }
+        while (jiraUserList.size() != 0);
+//        List<JiraUser> userOptions = jiraClientV2.getAssignableUser(projectKey, startAt, maxResults);
         JSONArray options = new JSONArray();
         userOptions.forEach(val -> {
             JSONObject jsonObject = new JSONObject();
