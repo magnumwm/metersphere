@@ -10,7 +10,7 @@
         :key="index"
         @change="handleChange"
         :label="getTranslateOption(item)"
-        :value="index">
+        :value="item.value">
       </el-option>
     </el-select>
 

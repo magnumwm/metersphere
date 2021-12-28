@@ -44,11 +44,11 @@ module.exports = {
       template: "src/template/report/plan/plan-report.html",
       filename: "plan-report.html",
     },
-    enterpriseReport: {
-      entry: "src/template/enterprise/share/share-enterprise-report.js",
-      template: "src/template/enterprise/share/share-enterprise-report.html",
-      filename: "share-enterprise-report.html",
-    },
+    // enterpriseReport: {
+    //   entry: "src/template/enterprise/share/share-enterprise-report.js",
+    //   template: "src/template/enterprise/share/share-enterprise-report.html",
+    //   filename: "share-enterprise-report.html",
+    // },
   },
   configureWebpack: {
     devtool: 'source-map',

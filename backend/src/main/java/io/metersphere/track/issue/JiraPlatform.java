@@ -214,11 +214,11 @@ public class JiraPlatform extends AbstractIssuePlatform {
                         if (StringUtils.equalsAny(item.getType(), "select", "radio", "member")) {
                             JSONObject param = new JSONObject();
                             if (fieldName.equals("assignee") || fieldName.equals("reporter")) {
-                                if (issuesRequest.isThirdPartPlatform()) {
-                                    param.put("id", item.getValue());
-                                } else {
+//                                if (issuesRequest.isThirdPartPlatform()) {
+//                                    param.put("id", item.getValue());
+//                                } else {
                                     param.put("name", item.getValue());
-                                }
+//                                }
                             } else {
                                 param.put("id", item.getValue());
                             }
@@ -531,7 +531,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         JSONArray options = new JSONArray();
         userOptions.forEach(val -> {
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("value", val.getAccountId());
+            jsonObject.put("value", val.getName());
             jsonObject.put("text", val.getDisplayName());
             options.add(jsonObject);
         });
