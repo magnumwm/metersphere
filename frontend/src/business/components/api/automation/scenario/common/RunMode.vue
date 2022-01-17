@@ -2,9 +2,22 @@
   <el-dialog
     destroy-on-close
     :title="$t('load_test.runtime_config')"
-    width="450px"
+    width="550px"
     :visible.sync="runModeVisible"
   >
+    <div style="margin-bottom: 10px;">
+      <span class="ms-mode-span">{{ $t("commons.environment") }}：</span>
+      <env-popover :project-ids="projectIds"
+                   :placement="'bottom-start'"
+                   :project-list="projectList"
+                   :project-env-map="projectEnvListMap"
+                   :environment-type.sync="runConfig.environmentType"
+                   :group-id="runConfig.environmentGroupId"
+                   @setEnvGroup="setEnvGroup"
+                   @setProjectEnvMap="setProjectEnvMap"
+                   @showPopover="showPopover"
+                   ref="envPopover" class="env-popover"/>
+    </div>
     <div>
       <span class="ms-mode-span">{{ $t("run_mode.title") }}：</span>
       <el-radio-group v-model="runConfig.mode" @change="changeMode">
@@ -58,27 +71,39 @@
 
 <script>
 import MsDialogFooter from "@/business/components/common/components/MsDialogFooter";
+import {ENV_TYPE} from "@/common/js/constants";
+import {strMapToObj} from "@/common/js/utils";
+import EnvPopover from "@/business/components/api/automation/scenario/EnvPopover";
 
 export default {
   name: "RunMode",
-  components: {MsDialogFooter},
+  components: {MsDialogFooter, EnvPopover},
   data() {
     return {
       runModeVisible: false,
       testType: null,
       resourcePools: [],
       runConfig: {
+        reportName: "",
         mode: "serial",
         reportType: "iddReport",
-        reportName: "",
+        onSampleError: false,
         runWithinResourcePool: false,
         resourcePoolId: null,
+        envMap: new Map(),
+        environmentGroupId: "",
+        environmentType: ENV_TYPE.JSON
       },
+      projectEnvListMap: {},
+      projectList: [],
+      projectIds: new Set(),
     };
   },
-  watch:{
-    'runConfig.runWithinResourcePool'(){
-      if(!this.runConfig.runWithinResourcePool){
+  props: ['request'],
+
+  watch: {
+    'runConfig.runWithinResourcePool'() {
+      if (!this.runConfig.runWithinResourcePool) {
         this.runConfig = {
           mode: this.runConfig.mode,
           reportType: "iddReport",
@@ -93,6 +118,8 @@ export default {
     open() {
       this.runModeVisible = true;
       this.getResourcePools();
+      this.getWsProjects();
+      this.runConfig.environmentType = ENV_TYPE.JSON;
     },
     changeMode() {
       this.runConfig.runWithinResourcePool = false;
@@ -105,10 +132,16 @@ export default {
         mode: "serial",
         reportType: "iddReport",
         reportName: "",
+        environmentType: ENV_TYPE.JSON,
         runWithinResourcePool: false,
         resourcePoolId: null,
       };
       this.runModeVisible = false;
+    },
+    getWsProjects() {
+      this.$get("/project/listAll", res => {
+        this.projectList = res.data;
+      })
     },
     handleRunBatch() {
       if (this.runConfig.mode === 'serial' && this.runConfig.reportType === 'setReport' && this.runConfig.reportName.trim() === "") {
@@ -121,6 +154,25 @@ export default {
     getResourcePools() {
       this.result = this.$get('/testresourcepool/list/quota/valid', response => {
         this.resourcePools = response.data;
+      });
+    },
+    setEnvGroup(id) {
+      this.runConfig.environmentGroupId = id;
+    },
+    setProjectEnvMap(projectEnvMap) {
+      this.runConfig.envMap = strMapToObj(projectEnvMap);
+    },
+    showPopover() {
+      this.projectIds.clear();
+      let url = "/api/automation/env";
+      this.$post(url, this.request, res => {
+        let data = res.data;
+        if (data) {
+          for (let d in data) {
+            this.projectIds.add(data[d]);
+          }
+        }
+        this.$refs.envPopover.openEnvSelect();
       });
     },
   },

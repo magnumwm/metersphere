@@ -7,6 +7,7 @@ import io.metersphere.api.dto.RunningParamKeys;
 import io.metersphere.api.dto.definition.request.ElementUtil;
 import io.metersphere.api.dto.definition.request.ParameterConfig;
 import io.metersphere.api.dto.scenario.environment.EnvironmentConfig;
+import io.metersphere.api.dto.shell.filter.ScriptFilter;
 import io.metersphere.plugin.core.MsParameter;
 import io.metersphere.plugin.core.MsTestElement;
 import lombok.Data;
@@ -37,16 +38,17 @@ public class MsJSR223Processor extends MsTestElement {
 
     @Override
     public void toHashTree(HashTree tree, List<MsTestElement> hashTree, MsParameter msParameter) {
+        ScriptFilter.verify(this.getScriptLanguage(), this.getName(), script);
         ParameterConfig config = (ParameterConfig) msParameter;
         //替换Metersphere环境变量
-        if(StringUtils.isEmpty(this.getEnvironmentId())){
-            if(config.getConfig() != null){
-                if(config.getProjectId() != null){
+        if (StringUtils.isEmpty(this.getEnvironmentId())) {
+            if (config.getConfig() != null) {
+                if (config.getProjectId() != null) {
                     String evnId = config.getConfig().get(config.getProjectId()).getApiEnvironmentid();
                     this.setEnvironmentId(evnId);
-                }else {
+                } else {
                     Collection<EnvironmentConfig> evnConfigList = config.getConfig().values();
-                    if(evnConfigList!=null && !evnConfigList.isEmpty()){
+                    if (evnConfigList != null && !evnConfigList.isEmpty()) {
                         for (EnvironmentConfig configItem : evnConfigList) {
                             String evnId = configItem.getApiEnvironmentid();
                             this.setEnvironmentId(evnId);
@@ -57,7 +59,7 @@ public class MsJSR223Processor extends MsTestElement {
 
             }
         }
-        script = StringUtils.replace(script, RunningParamKeys.API_ENVIRONMENT_ID,"\""+RunningParamKeys.RUNNING_PARAMS_PREFIX+this.getEnvironmentId()+".\"");
+        script = StringUtils.replace(script, RunningParamKeys.API_ENVIRONMENT_ID, "\"" + RunningParamKeys.RUNNING_PARAMS_PREFIX + this.getEnvironmentId() + ".\"");
 
         // 非导出操作，且不是启用状态则跳过执行
         if (!config.isOperating() && !this.isEnable()) {
@@ -71,14 +73,14 @@ public class MsJSR223Processor extends MsTestElement {
             processor.setName("JSR223Processor");
         }
         processor.setProperty("MS-ID", this.getId());
-        processor.setProperty("MS-RESOURCE-ID", this.getResourceId()+ "_" + this.getIndex());
+        String indexPath = this.getIndex();
+        processor.setProperty("MS-RESOURCE-ID", ElementUtil.getResourceId(this.getResourceId(), config, this.getParent(), indexPath));
         List<String> id_names = new LinkedList<>();
         ElementUtil.getScenarioSet(this, id_names);
         processor.setProperty("MS-SCENARIO", JSON.toJSONString(id_names));
 
         processor.setProperty(TestElement.TEST_CLASS, JSR223Sampler.class.getName());
         processor.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("TestBeanGUI"));
-        /*processor.setProperty("cacheKey", "true");*/
         processor.setProperty("scriptLanguage", this.getScriptLanguage());
         if (StringUtils.isNotEmpty(this.getScriptLanguage()) && this.getScriptLanguage().equals("nashornScript")) {
             processor.setProperty("scriptLanguage", "nashorn");

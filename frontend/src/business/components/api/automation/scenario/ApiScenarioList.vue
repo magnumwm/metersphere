@@ -141,9 +141,9 @@
               <div v-if="row.environmentMap">
                 <span v-for="(k, v, index) in row.environmentMap" :key="index">
                   <span v-if="index===0">
-                    <span class="project-name" :title="v">{{v}}</span>:
+                    <span class="project-name" :title="v">{{ v }}</span>:
                     <el-tag type="success" size="mini" effect="plain">
-                      <span class="project-env">{{k}}</span>
+                      <span class="project-env">{{ k }}</span>
                     </el-tag>
                     <br/>
                   </span>
@@ -152,8 +152,8 @@
                     width="350"
                     trigger="click">
                     <div v-for="(k, v, index) in row.environmentMap" :key="index">
-                      <span class="plan-case-env">{{v}}:
-                        <el-tag type="success" size="mini" effect="plain">{{k}}</el-tag><br/>
+                      <span class="plan-case-env">{{ v }}:
+                        <el-tag type="success" size="mini" effect="plain">{{ k }}</el-tag><br/>
                       </span>
                     </div>
                     <el-link v-if="index === 1" slot="reference" type="info" :underline="false" icon="el-icon-more"/>
@@ -266,8 +266,8 @@
     <batch-edit ref="batchEdit" @batchEdit="batchEdit" :typeArr="typeArr" :value-arr="valueArr"
                 :dialog-title="$t('test_track.case.batch_edit_case')"/>
     <batch-move @refresh="search" @moveSave="moveSave" ref="testBatchMove"/>
-    <ms-run-mode @handleRunBatch="handleRunBatch" ref="runMode"/>
-    <ms-run :debug="true" :environment="projectEnvMap" @runRefresh="runRefresh" :reportId="reportId" :saved="true"
+    <ms-run-mode @handleRunBatch="handleRunBatch" :request="runRequest" ref="runMode"/>
+    <ms-run :debug="true" :environment="projectEnvMap" @runRefresh="runRefresh" :reportId="reportId" :saved="true" :executeType="'Saved'"
             :environment-type="environmentType" :environment-group-id="envGroupId"
             :run-data="debugData" ref="runTest"/>
     <ms-task-center ref="taskCenter" :show-menu="false"/>
@@ -384,6 +384,7 @@ export default {
         components: API_SCENARIO_CONFIGS
       },
       scenarioId: "",
+      isMoveBatch: true,
       currentScenario: {},
       schedule: {},
       tableData: [],
@@ -470,14 +471,14 @@ export default {
           permissions: ['PROJECT_API_SCENARIO:READ+EDIT']
         },
         {
-          name: this.$t('api_test.batch_copy'),
-          handleClick: this.batchCopy,
-          permissions: ['PROJECT_API_SCENARIO:READ+BATCH_COPY']
-        },
-        {
           name: this.$t('test_track.case.batch_move_case'),
           handleClick: this.handleBatchMove,
           permissions: ['PROJECT_API_SCENARIO:READ+MOVE_BATCH']
+        },
+        {
+          name: this.$t('api_test.batch_copy'),
+          handleClick: this.handleBatchCopy,
+          permissions: ['PROJECT_API_SCENARIO:READ+BATCH_COPY']
         },
         {
           name: this.$t('api_test.definition.request.batch_delete'),
@@ -532,7 +533,8 @@ export default {
       graphData: {},
       environmentType: "",
       envGroupId: "",
-      apiscenariofilters:{},
+      apiscenariofilters: {},
+      runRequest: {},
     };
   },
   created() {
@@ -732,13 +734,21 @@ export default {
       }
     },
     handleBatchMove() {
+      this.isMoveBatch = true;
       this.$refs.testBatchMove.open(this.moduleTree, [], this.moduleOptions);
+    },
+    handleBatchCopy() {
+      this.isMoveBatch = false;
+      this.$refs.testBatchMove.open(this.moduleTree, this.$refs.scenarioTable.selectIds, this.moduleOptions);
     },
     moveSave(param) {
       this.buildBatchParam(param);
       param.apiScenarioModuleId = param.nodeId;
       param.modulePath = param.nodePath;
-      this.$post('/api/automation/batch/edit', param, () => {
+      let url = '/api/automation/batch/edit';
+      if (!this.isMoveBatch)
+        url = '/api/automation/batch/copy';
+      this.$post(url, param, () => {
         this.$success(this.$t('commons.save_success'));
         this.$refs.testBatchMove.close();
         this.search();
@@ -823,6 +833,14 @@ export default {
       param.condition = this.condition;
     },
     handleBatchExecute() {
+      let run = {};
+      run.id = getUUID();
+      //按照列表排序
+      let ids = this.orderBySelectRows();
+      run.ids = ids;
+      run.projectId = this.projectId;
+      run.condition = this.condition;
+      this.runRequest = run;
       this.$refs.runMode.open();
 
     },
@@ -1180,28 +1198,6 @@ export default {
         }
       });
     },
-    batchCopy() {
-      this.$alert(this.$t('api_test.definition.request.batch_copy_confirm') + " ？", '', {
-        confirmButtonText: this.$t('commons.confirm'),
-        callback: (action) => {
-          if (action === 'confirm') {
-            this.infoDb = false;
-            let param = {};
-            this.buildBatchParam(param);
-            this.$post('/api/automation/batchCopy', param, response => {
-              let copyResult = response.data;
-              if (copyResult.result) {
-                this.$success(this.$t('api_test.definition.request.batch_copy_end'));
-              } else {
-                this.$error(this.$t('commons.already_exists') + ":" + copyResult.errorMsg);
-              }
-
-              this.search();
-            });
-          }
-        }
-      });
-    },
     stop(row) {
       let url = "/api/automation/stop/" + this.reportId;
       this.$get(url, () => {
@@ -1262,7 +1258,7 @@ export default {
   vertical-align: middle;
 }
 
-.project-env{
+.project-env {
   display: inline-block;
   white-space: nowrap;
   overflow: hidden;

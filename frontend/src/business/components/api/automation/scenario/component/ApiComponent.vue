@@ -327,6 +327,7 @@ export default {
   },
   methods: {
     forStatus() {
+      this.reqSuccess = true;
       if (this.request.result && this.request.result.length > 0) {
         this.request.result.forEach(item => {
           item.requestResult.forEach(req => {
@@ -449,6 +450,7 @@ export default {
               this.mergeHashTree(req.hashTree);
             }
             this.initDataSource();
+            this.forStatus();
             this.sort();
             this.reload();
           }
@@ -583,6 +585,7 @@ export default {
           }
         }
       }
+      this.request.debug = true;
       this.request.active = true;
       this.loading = true;
       this.runData = [];

@@ -234,7 +234,7 @@ export default {
     },
     setDomain() {
       this.$emit("setDomain");
-    }
+    },
   }
 }
 </script>

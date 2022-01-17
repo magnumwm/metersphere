@@ -306,6 +306,7 @@ public class ProjectService {
         this.checkProjectTcpPort(project);
 
         project.setCreateTime(null);
+        project.setCreateUser(null);
         project.setUpdateTime(System.currentTimeMillis());
         checkProjectExist(project);
         if (BooleanUtils.isTrue(project.getCustomNum())) {
@@ -439,6 +440,15 @@ public class ProjectService {
             }
         }
         return project;
+    }
+
+    public boolean isThirdPartTemplate(String projectId) {
+        Project project = getProjectById(projectId);
+        if (project.getThirdPartTemplate() != null && project.getThirdPartTemplate()
+                && project.getPlatform().equals(IssuesManagePlatform.Jira.name())) {
+            return true;
+        }
+        return false;
     }
 
     public boolean useCustomNum(String projectId) {

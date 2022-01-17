@@ -56,7 +56,7 @@
         <template v-slot:default="scope">
           <span @click.stop="clickt = 'stop'">
               <span class="el-dropdown-link">
-                  <status-table-item :value="scope.row.lastExecuteResult"/>
+                  <status-table-item :value="scope.row.lastExecuteResult ? scope.row.lastExecuteResult : 'Prepare'"/>
               </span>
             </span>
         </template>
@@ -346,7 +346,7 @@ export default {
         {
           name: this.$t('api_test.batch_copy'),
           handleClick: this.handleBatchCopy,
-          permissions: ['PROJECT_TRACK_CASE:READ+EDIT']
+          permissions: ['PROJECT_TRACK_CASE:READ+COPY']
         },
         {
           name: this.$t('test_track.case.batch_delete_case'),
@@ -1079,6 +1079,7 @@ export default {
       let url = '/test/case/batch/edit';
       if (!this.isMoveBatch)
         url = '/test/case/batch/copy';
+      param.projectId = this.projectId;
       this.page.result = this.$post(url, param, () => {
         this.$success(this.$t('commons.save_success'));
         this.$refs.testBatchMove.close();

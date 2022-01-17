@@ -116,5 +116,18 @@
           and (t3.project_id = #{projectId} OR t4.project_id = #{projectId} OR t6.project_id = #{projectId})
           and t.`STATUS` in ('running', 'waiting')
     </select>
+    <select id="selectForPlanReport" resultType="io.metersphere.track.dto.PlanReportCaseDTO">
+        select status from api_definition_exec_result
+        where id in
+        <foreach collection="ids" item="id" separator="," open="(" close=")">
+            #{id}
+        </foreach>
+    </select>
 
+    <update id="update" parameterType="java.util.List">
+        update api_definition_exec_result set status="STOP" where id in
+        <foreach collection="ids" item="value" separator="," open="(" close=")">
+            #{value}
+        </foreach>
+    </update>
 </mapper>

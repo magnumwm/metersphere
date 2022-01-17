@@ -223,6 +223,7 @@ export default {
     run_fail: "Run Fail",
     run_warning: "Is running, please check later",
     run_stop: "The current task has been stopped and the report cannot be viewed",
+    report_delete: "Report deleted",
     follow_success: "Follow Success",
     cancel_follow_success: "Cancel Follow Success",
     generate_test_data: "Generate test data",
@@ -1334,6 +1335,9 @@ export default {
       config_environment: "Config Environment",
       copy_environment: "copy environment",
       environment: "Environment",
+      environment_type: "Environment Type",
+      environment_json: "Environment Config",
+      environment_group_id: "Environment Group ID",
       select_environment: "Please select environment",
       please_save_test: "Please Save Test First",
       common_config: "Common Config",
@@ -2149,6 +2153,7 @@ export default {
       not_pass: "UnPass",
       failure: "Failure",
       blocking: "Blocking",
+      stop: "Stop",
       skip: "Skip",
       actual_result: "Actual result",
       step_result: "Step result",
@@ -2287,6 +2292,7 @@ export default {
     update_resource_pool: 'Create resource pool',
     select_pool_type: 'Select resource type',
     max_threads: 'Maximum concurrent number',
+    sync_jar: 'Timing synchronization jar',
     input_pool_name: 'Please enter the resource pool name',
     pool_name_valid: 'Resource pool name does not support special characters',
     cannot_remove_all_node: 'Cannot delete all independent nodes',
@@ -2487,7 +2493,8 @@ export default {
     timeout: "timeout",
   },
   variables: {
-    cvs_info: "Only CSV files can be uploaded",
+    ƒ: "Only CSV files can be uploaded",
+    csv_message: "2000 items are displayed by default, and the complete content can be downloaded and viewed.",
     end: "end",
     start: "start",
     increment: "increment",
@@ -2589,6 +2596,13 @@ export default {
     api_case: 'API Case',
   },
   permission: {
+    project_error_report_library: {
+      name: "Error report library",
+      read: "READ",
+      create: "CREATE",
+      edit: "EDIT",
+      delete: "DELETE",
+    },
     system_user: {
       name: "User",
       read: "READ",
@@ -2881,6 +2895,24 @@ export default {
       project: "Project",
       report: "Report Statistics"
     }
+  },
+  env_options: {
+    all_assertions: "Assertions"
+  },
+  error_report_library: {
+    name: "Error report",
+    assertion: "Error code assertion",
+    use_error_report: "Use error code",
+    use_desc: "In case of conflict between error code and error assertions, it is treated as error code",
+    option: {
+      name: "Err code",
+      error_code: "Err code",
+      match_type: "Match",
+      status: "Status",
+      is_open: "Is open",
+    },
+    match_type: {
+      text: "TXT"
+    }
   }
-
 };

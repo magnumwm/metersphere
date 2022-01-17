@@ -214,6 +214,7 @@ public class TestPlanScenarioCaseService {
     }
 
     public void setScenarioEnv(List<String> planScenarioIds, RunModeConfigDTO runModeConfig) {
+        if (CollectionUtils.isEmpty(planScenarioIds)) return;
         SqlSession sqlSession = sqlSessionFactory.openSession(ExecutorType.BATCH);
         TestPlanApiScenarioExample testPlanApiScenarioExample = new TestPlanApiScenarioExample();
         testPlanApiScenarioExample.createCriteria().andIdIn(planScenarioIds);
@@ -430,11 +431,20 @@ public class TestPlanScenarioCaseService {
 
     public void calculatePlanReport(String planId, TestPlanSimpleReportDTO report) {
         List<PlanReportCaseDTO> planReportCaseDTOS = extTestPlanScenarioCaseMapper.selectForPlanReport(planId);
+        calculatePlanReport(report, planReportCaseDTOS);
+    }
+
+    public void calculatePlanReport(List<String> reportIds, TestPlanSimpleReportDTO report) {
+        List<PlanReportCaseDTO> planReportCaseDTOS = apiScenarioReportService.selectForPlanReport(reportIds);
+        calculatePlanReport(report, planReportCaseDTOS);
+    }
+
+    private void calculatePlanReport(TestPlanSimpleReportDTO report, List<PlanReportCaseDTO> planReportCaseDTOS) {
         TestPlanApiResultReportDTO apiResult = report.getApiResult();
 
         List<TestCaseReportStatusResultDTO> statusResult = new ArrayList<>();
         Map<String, TestCaseReportStatusResultDTO> statusResultMap = new HashMap<>();
-        TestPlanUtils.calculatePlanReport(planReportCaseDTOS, statusResultMap, report, "Success");
+        TestPlanUtils.buildStatusResultMap(planReportCaseDTOS, statusResultMap, report, "Success");
         TestPlanUtils.addToReportCommonStatusResultList(statusResultMap, statusResult);
         TestPlanScenarioStepCountDTO stepCount = new TestPlanScenarioStepCountDTO();
         for (PlanReportCaseDTO item : planReportCaseDTOS) {
@@ -500,14 +510,11 @@ public class TestPlanScenarioCaseService {
         return buildCases(apiTestCases);
     }
 
-    public List<TestPlanFailureScenarioDTO> getAllCases(Map<String,String> idMap, boolean isFinish) {
+    public List<TestPlanFailureScenarioDTO> getAllCases(Map<String,String> idMap) {
         List<TestPlanFailureScenarioDTO> apiTestCases =
                 extTestPlanScenarioCaseMapper.getFailureListByIds(idMap.keySet(), null);
 
-        String defaultStatus = "Running";
-        if(isFinish){
-            defaultStatus = "Fail";
-        }
+        String defaultStatus = "Fail";
         Map<String,String> reportStatus = apiScenarioReportService.getReportStatusByReportIds(idMap.values());
         for (TestPlanFailureScenarioDTO dto: apiTestCases) {
             String reportId = idMap.get(dto.getId());

@@ -2,7 +2,6 @@ package io.metersphere.api.service;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import io.metersphere.api.cache.TestPlanReportExecuteCatch;
 import io.metersphere.api.dto.datacount.ExecutedCaseInfoResult;
 import io.metersphere.base.domain.*;
 import io.metersphere.base.mapper.ApiDefinitionExecResultMapper;
@@ -18,6 +17,7 @@ import io.metersphere.dto.RequestResult;
 import io.metersphere.dto.ResultDTO;
 import io.metersphere.notice.sender.NoticeModel;
 import io.metersphere.notice.service.NoticeSendService;
+import io.metersphere.track.dto.PlanReportCaseDTO;
 import io.metersphere.track.dto.TestPlanDTO;
 import io.metersphere.track.request.testcase.QueryTestPlanRequest;
 import io.metersphere.track.request.testcase.TrackCount;
@@ -90,43 +90,47 @@ public class ApiDefinitionExecResultService {
     }
 
     private void sendNotice(ApiDefinitionExecResult result) {
-        String resourceId = result.getResourceId();
-        ApiTestCaseWithBLOBs apiTestCaseWithBLOBs = apiTestCaseMapper.selectByPrimaryKey(resourceId);
-        // 接口定义直接执行不发通知
-        if (apiTestCaseWithBLOBs == null) {
-            return;
-        }
-        BeanMap beanMap = new BeanMap(apiTestCaseWithBLOBs);
+        try {
+            String resourceId = result.getResourceId();
+            ApiTestCaseWithBLOBs apiTestCaseWithBLOBs = apiTestCaseMapper.selectByPrimaryKey(resourceId);
+            // 接口定义直接执行不发通知
+            if (apiTestCaseWithBLOBs == null) {
+                return;
+            }
+            BeanMap beanMap = new BeanMap(apiTestCaseWithBLOBs);
 
-        String event;
-        String status;
-        if (StringUtils.equals(result.getStatus(), "success")) {
-            event = NoticeConstants.Event.EXECUTE_SUCCESSFUL;
-            status = "成功";
-        } else {
-            event = NoticeConstants.Event.EXECUTE_FAILED;
-            status = "失败";
-        }
+            String event;
+            String status;
+            if (StringUtils.equals(result.getStatus(), "success")) {
+                event = NoticeConstants.Event.EXECUTE_SUCCESSFUL;
+                status = "成功";
+            } else {
+                event = NoticeConstants.Event.EXECUTE_FAILED;
+                status = "失败";
+            }
 
-        Map paramMap = new HashMap<>(beanMap);
-        paramMap.put("operator", SessionUtils.getUser().getName());
-        paramMap.put("status", result.getStatus());
-        String context = "${operator}执行接口用例" + status + ": ${name}";
-        NoticeModel noticeModel = NoticeModel.builder()
-                .operator(SessionUtils.getUserId())
-                .context(context)
-                .subject("接口用例通知")
-                .successMailTemplate("api/CaseResultSuccess")
-                .failedMailTemplate("api/CaseResultFailed")
-                .paramMap(paramMap)
-                .event(event)
-                .build();
+            Map paramMap = new HashMap<>(beanMap);
+            paramMap.put("operator", SessionUtils.getUser().getName());
+            paramMap.put("status", result.getStatus());
+            String context = "${operator}执行接口用例" + status + ": ${name}";
+            NoticeModel noticeModel = NoticeModel.builder()
+                    .operator(SessionUtils.getUserId())
+                    .context(context)
+                    .subject("接口用例通知")
+                    .successMailTemplate("api/CaseResultSuccess")
+                    .failedMailTemplate("api/CaseResultFailed")
+                    .paramMap(paramMap)
+                    .event(event)
+                    .build();
 
-        String taskType = NoticeConstants.TaskType.API_DEFINITION_TASK;
-        if (StringUtils.equals(ReportTriggerMode.API.name(), result.getTriggerMode())) {
-            noticeSendService.send(ReportTriggerMode.API.name(), taskType, noticeModel);
-        } else {
-            noticeSendService.send(taskType, noticeModel);
+            String taskType = NoticeConstants.TaskType.API_DEFINITION_TASK;
+            if (StringUtils.equals(ReportTriggerMode.API.name(), result.getTriggerMode())) {
+                noticeSendService.send(ReportTriggerMode.API.name(), taskType, noticeModel);
+            } else {
+                noticeSendService.send(taskType, noticeModel);
+            }
+        } catch (Exception e) {
+            LogUtil.error(e);
         }
     }
 
@@ -224,7 +228,6 @@ public class ApiDefinitionExecResultService {
             apiIdResultMap.put(dto.getReportId(), status);
         }
         testPlanLog.info("TestPlanReportId[" + dto.getTestPlanReportId() + "] APICASE OVER. API CASE STATUS:" + JSONObject.toJSONString(apiIdResultMap));
-        TestPlanReportExecuteCatch.updateApiTestPlanExecuteInfo(dto.getTestPlanReportId(), apiIdResultMap, null, null);
     }
 
     /**
@@ -323,15 +326,13 @@ public class ApiDefinitionExecResultService {
             }
             item.getResponseResult().setConsole(console);
             saveResult.setId(reportId);
-            saveResult.setActuator("LOCAL");
+            if (StringUtils.isEmpty(saveResult.getActuator())) {
+                saveResult.setActuator("LOCAL");
+            }
             saveResult.setName(item.getName());
             saveResult.setType(type);
             saveResult.setCreateTime(item.getStartTime());
-            if (SessionUtils.getUser() != null) {
-                saveResult.setUserId(SessionUtils.getUser().getId());
-            }
-
-            String status = item.isSuccess() ? "success" : "error";
+            String status = item.isSuccess() ? ExecuteResult.success.name() : ExecuteResult.error.name();
             saveResult.setName(editStatus(type, status, saveResult.getCreateTime(), saveResult.getId(), testId));
             saveResult.setStatus(status);
             saveResult.setResourceId(item.getName());
@@ -371,5 +372,11 @@ public class ApiDefinitionExecResultService {
 
     public ApiDefinitionExecResult getInfo(String id) {
         return apiDefinitionExecResultMapper.selectByPrimaryKey(id);
+    }
+
+    public List<PlanReportCaseDTO> selectForPlanReport(List<String> apiReportIds) {
+        if (CollectionUtils.isEmpty(apiReportIds))
+            return new ArrayList<>();
+        return extApiDefinitionExecResultMapper.selectForPlanReport(apiReportIds);
     }
 }

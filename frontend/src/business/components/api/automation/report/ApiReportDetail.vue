@@ -125,6 +125,7 @@ export default {
       this.fullTreeNodes = [];
       this.failsTreeNodes = [];
       this.isRequestResult = false;
+      this.activeName = "total";
     },
     handleClick(tab, event) {
       this.isRequestResult = false;
@@ -344,7 +345,7 @@ export default {
         }
       } else {
         this.$emit('invisible');
-        this.$warning('报告已删除');
+        this.$warning(this.$t('commons.report_delete'));
       }
     },
     buildReport() {
@@ -418,7 +419,7 @@ export default {
             requestTime = requestTime + resTime;
           })
         })
-          this.totalTime = requestTime
+        this.totalTime = requestTime
       }
     },
     requestResult(requestResult) {

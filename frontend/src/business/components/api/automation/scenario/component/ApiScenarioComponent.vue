@@ -69,11 +69,14 @@ import MsDubboBasisParameters from "../../../definition/components/request/dubbo
 import MsApiRequestForm from "../../../definition/components/request/http/ApiHttpRequestForm";
 import ApiBaseComponent from "../common/ApiBaseComponent";
 import {getCurrentProjectID, getCurrentWorkspaceId, getUUID, strMapToObj} from "@/common/js/utils";
+import {ELEMENT_TYPE, STEP, TYPE_TO_C} from "@/business/components/api/automation/scenario/Setting";
+import {KeyValue} from "@/business/components/api/definition/model/ApiTestModel";
 
 export default {
   name: "ApiScenarioComponent",
   props: {
     scenario: {},
+    currentScenario: {},
     message: String,
     node: {},
     isMax: {
@@ -103,54 +106,14 @@ export default {
     },
   },
   created() {
-    if(this.scenario.num){
+    if (this.scenario.num) {
       this.isShowNum = true;
+      this.getWorkspaceId(this.scenario.projectId);
+    } else {
+      this.isSameSpace = false;
     }
     if (!this.scenario.projectId) {
       this.scenario.projectId = getCurrentProjectID();
-    }
-    if (this.scenario.id && this.scenario.referenced === 'REF' && !this.scenario.loaded) {
-      this.result = this.$get("/api/automation/getApiScenario/" + this.scenario.id, response => {
-        if (response.data) {
-          this.scenario.loaded = true;
-          let obj = {};
-          if (response.data.scenarioDefinition) {
-            obj = JSON.parse(response.data.scenarioDefinition);
-            this.scenario.hashTree = obj.hashTree;
-          }
-          this.scenario.projectId = response.data.projectId;
-          const pro = this.projectList.find(p => p.id === response.data.projectId);
-          if (!pro) {
-            this.scenario.projectId = getCurrentProjectID();
-          }
-          if (this.scenario.hashTree) {
-            this.setDisabled(this.scenario.hashTree, this.scenario.projectId);
-          }
-          if(response.data.num){
-            this.scenario.num = response.data.num;
-            this.getWorkspaceId(response.data.projectId);
-          }
-          this.scenario.name = response.data.name;
-          this.scenario.headers = obj.headers;
-          this.scenario.variables = obj.variables;
-          this.scenario.environmentMap = obj.environmentMap;
-          this.$emit('refReload');
-        }
-      })
-    }
-    else if(this.scenario.id && (this.scenario.referenced === 'Copy'||this.scenario.referenced === 'Created') && !this.scenario.loaded){
-      this.result = this.$get("/api/automation/getApiScenario/" + this.scenario.id, response => {
-        if (response.data) {
-          if(response.data.num){
-            this.scenario.num = response.data.num;
-            this.getWorkspaceId(response.data.projectId);
-          }else {
-            this.isSameSpace = false
-          }
-        } else {
-          this.isSameSpace = false
-        }
-      })
     }
   },
   components: {ApiBaseComponent, MsSqlBasisParameters, MsTcpBasisParameters, MsDubboBasisParameters, MsApiRequestForm},
@@ -158,8 +121,9 @@ export default {
     return {
       loading: false,
       isShowInput: false,
-      isShowNum:false,
-      isSameSpace:true
+      isShowNum: false,
+      isSameSpace: true,
+      stepFilter: new STEP,
     }
   },
   computed: {
@@ -176,7 +140,10 @@ export default {
   methods: {
     run() {
       this.scenario.run = true;
-      this.$emit('runScenario', this.scenario);
+      let runScenario = JSON.parse(JSON.stringify(this.scenario));
+      runScenario.hashTree = [this.scenario];
+      runScenario.stepScenario = true;
+      this.$emit('runScenario', runScenario);
     },
     stop() {
       this.scenario.run = false;
@@ -279,16 +246,16 @@ export default {
     clickResource(resource) {
       let automationData = this.$router.resolve({
         name: 'ApiAutomation',
-        params: {redirectID: getUUID(), dataType: "scenario", dataSelectRange: 'edit:' + resource.id,projectId:resource.projectId}
+        params: {redirectID: getUUID(), dataType: "scenario", dataSelectRange: 'edit:' + resource.id, projectId: resource.projectId}
       });
       window.open(automationData.href, '_blank');
     },
-    getWorkspaceId(projectId){
+    getWorkspaceId(projectId) {
       this.$get("/project/get/" + projectId, response => {
-        if(response.data){
-          if(response.data.workspaceId===getCurrentWorkspaceId()){
+        if (response.data) {
+          if (response.data.workspaceId === getCurrentWorkspaceId()) {
             this.isShowNum = true;
-          }else {
+          } else {
             this.isSameSpace = false;
           }
         }
@@ -358,7 +325,8 @@ export default {
 .ms-test-running {
   color: #6D317C;
 }
-.ms-num{
+
+.ms-num {
   margin-left: 1rem;
   font-size: 15px;
   color: #de9d1c;

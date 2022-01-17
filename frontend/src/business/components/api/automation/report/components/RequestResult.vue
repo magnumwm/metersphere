@@ -35,9 +35,9 @@
           <el-col :span="2">
             <div>
               <el-tag v-if="request.testing" class="ms-test-running" size="mini">
-               <i class="el-icon-loading" style="font-size: 16px"/>
-               {{ $t('commons.testing') }}
-             </el-tag>
+                <i class="el-icon-loading" style="font-size: 16px"/>
+                {{ $t('commons.testing') }}
+              </el-tag>
               <el-tag size="mini" v-else-if="request.unexecute">{{ $t('api_test.home_page.detail_card.unexecute') }}</el-tag>
               <el-tag size="mini" type="success" v-else-if="request.success"> {{ $t('api_report.success') }}</el-tag>
               <el-tag size="mini" type="danger" v-else> {{ $t('api_report.fail') }}</el-tag>

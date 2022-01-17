@@ -68,9 +68,9 @@ public class JMeterService {
     }
 
     private void addDebugListener(String testId, HashTree testPlan) {
-        MsResultCollector resultCollector = new MsResultCollector();
+        MsDebugListener resultCollector = new MsDebugListener();
         resultCollector.setName(testId);
-        resultCollector.setProperty(TestElement.TEST_CLASS, MsResultCollector.class.getName());
+        resultCollector.setProperty(TestElement.TEST_CLASS, MsDebugListener.class.getName());
         resultCollector.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("ViewResultsFullVisualizer"));
         resultCollector.setEnabled(true);
         testPlan.add(testPlan.getArray()[0], resultCollector);
@@ -107,11 +107,15 @@ public class JMeterService {
         if (baseInfo != null) {
             platformUrl = baseInfo.getUrl();
         }
+        // 临时存放
+        String queueDetailId = request.getPlatformUrl();
+
         platformUrl += "/api/jmeter/download?testId="
                 + request.getTestId()
                 + "&reportId=" + request.getReportId()
                 + "&runMode=" + request.getRunMode()
-                + "&reportType=" + request.getReportType();
+                + "&reportType=" + request.getReportType()
+                + "&queueId=" + queueDetailId;
 
         request.setPlatformUrl(platformUrl);
         request.setKafkaConfig(KafkaConfig.getKafka());
@@ -132,7 +136,7 @@ public class JMeterService {
         }
     }
 
-    private synchronized void send(JmeterRunRequestDTO request) {
+    private void send(JmeterRunRequestDTO request) {
         try {
             List<JvmInfoDTO> resources = GenerateHashTreeUtil.setPoolResource(request.getPoolId());
             int index = (int) (Math.random() * resources.size());
@@ -141,6 +145,7 @@ public class JMeterService {
             String configuration = testResource.getConfiguration();
             NodeDTO node = JSON.parseObject(configuration, NodeDTO.class);
             request.setCorePoolSize(node.getMaxConcurrency());
+            request.setEnable(node.isEnable());
             String nodeIp = node.getIp();
             Integer port = node.getPort();
             String uri = String.format(BASE_URL + "/jmeter/api/start", nodeIp, port);
@@ -154,8 +159,8 @@ public class JMeterService {
                 runRequest.setTestId(request.getTestId());
                 runRequest.setRunMode(request.getRunMode());
                 remakeReportService.remake(request);
-
                 LoggerUtil.error("发送请求[ " + request.getTestId() + " ] 到" + uri + " 节点执行失败");
+                LoggerUtil.info(result.getBody());
             }
         } catch (Exception e) {
             RemakeReportService remakeReportService = CommonBeanFactory.getBean(RemakeReportService.class);
@@ -164,6 +169,7 @@ public class JMeterService {
             runRequest.setRunMode(request.getRunMode());
             remakeReportService.remake(request);
             LoggerUtil.error("发送请求[ " + request.getTestId() + " ] 执行失败：" + e.getMessage());
+            LoggerUtil.error(e);
         }
     }
 

@@ -66,13 +66,13 @@ public class ZentaoPlatform extends AbstractIssuePlatform {
 
     public IssuesDao getZentaoAssignedAndBuilds(IssuesDao issue){
         JSONObject zentaoIssue = zentaoClient.getBugById(issue.getPlatformId());
-        String openedBy = zentaoIssue.getString("openedBy");
+        String assignedTo = zentaoIssue.getString("assignedTo");
         String openedBuild = zentaoIssue.getString("openedBuild");
         List<String>zentaoBuilds = new ArrayList<>();
         if(Strings.isNotBlank(openedBuild)){
             zentaoBuilds = Arrays.asList(openedBuild.split(","));
         }
-        issue.setZentaoAssigned(openedBy);
+        issue.setZentaoAssigned(assignedTo);
         issue.setZentaoBuilds(zentaoBuilds);
         return issue;
     }
@@ -162,8 +162,12 @@ public class ZentaoPlatform extends AbstractIssuePlatform {
         issue.setReporter(bugObj.getOpenedBy());
         issue.setPlatform(key);
         try {
-            issue.setCreateTime(bug.getLong("openedDate"));
-            issue.setUpdateTime(bug.getLong("lastEditedDate"));
+            String openedDate = bug.getString("openedDate");
+            String lastEditedDate = bug.getString("lastEditedDate");
+            if (StringUtils.isNotBlank(openedDate) && !openedDate.startsWith("0000-00-00"))
+                issue.setCreateTime(bug.getLong("openedDate"));
+            if (StringUtils.isNotBlank(lastEditedDate)  && !lastEditedDate.startsWith("0000-00-00"))
+                issue.setUpdateTime(bug.getLong("lastEditedDate"));
         } catch (Exception e) {
             LogUtil.error("update zentao time" + e.getMessage());
         }

@@ -163,6 +163,7 @@ public class MsHTTPSamplerProxy extends MsTestElement {
                 } else {
                     this.setHashTree(proxy.getHashTree());
                 }
+                this.setPath(proxy.getPath());
                 this.setMethod(proxy.getMethod());
                 this.setBody(proxy.getBody());
                 this.setRest(proxy.getRest());
@@ -199,7 +200,7 @@ public class MsHTTPSamplerProxy extends MsTestElement {
         sampler.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("HttpTestSampleGui"));
         sampler.setProperty("MS-ID", this.getId());
         String indexPath = this.getIndex();
-        sampler.setProperty("MS-RESOURCE-ID", this.getResourceId() + "_" + ElementUtil.getFullIndexPath(this.getParent(), indexPath));
+        sampler.setProperty("MS-RESOURCE-ID", ElementUtil.getResourceId(this.getId(), config, this.getParent(), indexPath));
         List<String> id_names = new LinkedList<>();
         ElementUtil.getScenarioSet(this, id_names);
         sampler.setProperty("MS-SCENARIO", JSON.toJSONString(id_names));
@@ -405,13 +406,12 @@ public class MsHTTPSamplerProxy extends MsTestElement {
                     this.useEnvironment = config.getConfig().get(this.getProjectId()).getApiEnvironmentid();
                 }
                 String url = httpConfig.getProtocol() + "://" + httpConfig.getSocket();
-                // 补充如果是完整URL 则用自身URL
-
-                if (StringUtils.isNotEmpty(this.getUrl()) && ElementUtil.isURL(this.getUrl())) {
-                    url = this.getUrl();
-                }
 
                 if (isUrl()) {
+                    // 补充如果是完整URL 则用自身URL
+                    if (StringUtils.isNotEmpty(this.getUrl()) && ElementUtil.isURL(this.getUrl())) {
+                        url = this.getUrl();
+                    }
                     if (this.isCustomizeReq()) {
                         url = this.getUrl();
                         sampler.setProperty("HTTPSampler.path", url);
@@ -633,9 +633,6 @@ public class MsHTTPSamplerProxy extends MsTestElement {
             }
             return true;
         }
-        if (StringUtils.isNotEmpty(this.getUrl()) && ElementUtil.isURL(this.getUrl())) {
-            return true;
-        }
         return false;
     }
 
@@ -812,6 +809,7 @@ public class MsHTTPSamplerProxy extends MsTestElement {
                         }
                     } else {
                         apiDefinition = apiDefinitionService.get(this.getId());
+                        apiDefinition = apiDefinition == null ? apiDefinitionService.get(this.getName()) : apiDefinition;
                         if (apiDefinition == null) {
                             ApiTestCaseWithBLOBs apiTestCaseWithBLOBs = apiTestCaseService.get(this.getId());
                             if (apiTestCaseWithBLOBs == null) {
@@ -822,6 +820,7 @@ public class MsHTTPSamplerProxy extends MsTestElement {
                             } else {
                                 TestPlanApiCaseService testPlanApiCaseService = CommonBeanFactory.getBean(TestPlanApiCaseService.class);
                                 TestPlanApiCase testPlanApiCase = testPlanApiCaseService.getById(this.getId());
+                                testPlanApiCase = testPlanApiCase == null ? testPlanApiCaseService.getById(this.getName()) : testPlanApiCase;
                                 if (testPlanApiCase != null) {
                                     ApiTestCaseWithBLOBs caseWithBLOBs = apiTestCaseService.get(testPlanApiCase.getApiCaseId());
                                     if (caseWithBLOBs != null) {

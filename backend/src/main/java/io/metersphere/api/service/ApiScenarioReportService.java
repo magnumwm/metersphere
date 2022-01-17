@@ -3,7 +3,6 @@ package io.metersphere.api.service;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import io.metersphere.api.cache.TestPlanReportExecuteCatch;
 import io.metersphere.api.dto.APIReportBatchRequest;
 import io.metersphere.api.dto.DeleteAPIReportRequest;
 import io.metersphere.api.dto.EnvironmentType;
@@ -32,6 +31,7 @@ import io.metersphere.log.vo.api.ModuleReference;
 import io.metersphere.notice.sender.NoticeModel;
 import io.metersphere.notice.service.NoticeSendService;
 import io.metersphere.service.UserService;
+import io.metersphere.track.dto.PlanReportCaseDTO;
 import io.metersphere.utils.LoggerUtil;
 import org.apache.commons.beanutils.BeanMap;
 import org.apache.commons.collections4.CollectionUtils;
@@ -80,6 +80,8 @@ public class ApiScenarioReportService {
     @Resource
     private ApiScenarioReportStructureService apiScenarioReportStructureService;
     @Resource
+    private ApiScenarioReportStructureMapper apiScenarioReportStructureMapper;
+    @Resource
     private MsResultService resultService;
 
     public void saveResult(List<RequestResult> requestResults, ResultDTO dto) {
@@ -102,7 +104,6 @@ public class ApiScenarioReportService {
                 this.put(dto.getReportId(), status);
             }};
             testPlanLog.info("TestPlanReportId" + JSONArray.toJSONString(dto.getReportId()) + " EXECUTE OVER. SCENARIO STATUS : " + JSONObject.toJSONString(reportMap));
-            TestPlanReportExecuteCatch.updateApiTestPlanExecuteInfo(dto.getTestPlanReportId(), null, reportMap, null);
         }
 
         ApiScenarioReport scenarioReport;
@@ -134,7 +135,16 @@ public class ApiScenarioReportService {
 
     public List<APIScenarioReportResult> list(QueryAPIReportRequest request) {
         request.setOrders(ServiceUtils.getDefaultOrder(request.getOrders()));
-        return extApiScenarioReportMapper.list(request);
+        List<APIScenarioReportResult> list = extApiScenarioReportMapper.list(request);
+        List<String> userIds = list.stream().map(APIScenarioReportResult::getUserId)
+                .collect(Collectors.toList());
+        Map<String, User> userMap = ServiceUtils.getUserMap(userIds);
+        list.forEach(item -> {
+            User user = userMap.get(item.getUserId());
+            if (user != null)
+                item.setUserName(user.getName());
+        });
+        return list;
     }
 
     public List<String> idList(QueryAPIReportRequest request) {
@@ -362,7 +372,7 @@ public class ApiScenarioReportService {
     public String getEnvironment(ApiScenarioWithBLOBs apiScenario) {
         String environment = "未配置";
         String environmentType = apiScenario.getEnvironmentType();
-        if (StringUtils.equals(environmentType, EnvironmentType.JSON.name())) {
+        if (StringUtils.equals(environmentType, EnvironmentType.JSON.name()) && StringUtils.isNotEmpty(apiScenario.getEnvironmentJson())) {
             String environmentJson = apiScenario.getEnvironmentJson();
             JSONObject jsonObject = JSON.parseObject(environmentJson);
             ApiTestEnvironmentExample example = new ApiTestEnvironmentExample();
@@ -451,6 +461,14 @@ public class ApiScenarioReportService {
 
     public void delete(DeleteAPIReportRequest request) {
         apiScenarioReportDetailMapper.deleteByPrimaryKey(request.getId());
+        ApiScenarioReportResultExample example = new ApiScenarioReportResultExample();
+        example.createCriteria().andReportIdEqualTo(request.getId());
+        apiScenarioReportResultMapper.deleteByExample(example);
+
+        ApiScenarioReportStructureExample structureExample = new ApiScenarioReportStructureExample();
+        structureExample.createCriteria().andReportIdEqualTo(request.getId());
+        apiScenarioReportStructureMapper.deleteByExample(structureExample);
+
         // 补充逻辑，如果是集成报告则把零时报告全部删除
         ApiScenarioReport report = apiScenarioReportMapper.selectByPrimaryKey(request.getId());
         if (report != null && StringUtils.isNotEmpty(report.getScenarioId())) {
@@ -520,6 +538,15 @@ public class ApiScenarioReportService {
             ApiScenarioReportExample apiTestReportExample = new ApiScenarioReportExample();
             apiTestReportExample.createCriteria().andIdIn(handleIdList);
             apiScenarioReportMapper.deleteByExample(apiTestReportExample);
+
+            ApiScenarioReportResultExample reportResultExample = new ApiScenarioReportResultExample();
+            reportResultExample.createCriteria().andReportIdIn(handleIdList);
+            apiScenarioReportResultMapper.deleteByExample(reportResultExample);
+
+            ApiScenarioReportStructureExample structureExample = new ApiScenarioReportStructureExample();
+            structureExample.createCriteria().andReportIdIn(handleIdList);
+            apiScenarioReportStructureMapper.deleteByExample(structureExample);
+
             //转存剩余的数据
             ids = otherIdList;
         }
@@ -532,6 +559,15 @@ public class ApiScenarioReportService {
             ApiScenarioReportExample apiTestReportExample = new ApiScenarioReportExample();
             apiTestReportExample.createCriteria().andIdIn(ids);
             apiScenarioReportMapper.deleteByExample(apiTestReportExample);
+
+            ApiScenarioReportResultExample reportResultExample = new ApiScenarioReportResultExample();
+            reportResultExample.createCriteria().andReportIdIn(ids);
+            apiScenarioReportResultMapper.deleteByExample(reportResultExample);
+
+            ApiScenarioReportStructureExample structureExample = new ApiScenarioReportStructureExample();
+            structureExample.createCriteria().andReportIdIn(ids);
+            apiScenarioReportStructureMapper.deleteByExample(structureExample);
+
         }
     }
 
@@ -692,4 +728,9 @@ public class ApiScenarioReportService {
         }
         return status;
     }
+
+    public List<PlanReportCaseDTO> selectForPlanReport(List<String> reportIds) {
+        return extApiScenarioReportMapper.selectForPlanReport(reportIds);
+    }
+
 }

@@ -223,6 +223,7 @@ export default {
     run_completed: "执行完成",
     run_warning: "正在运行中，请稍后查看",
     run_stop: "当前任务已停止，无法查看报告",
+    report_delete: "报告已删除",
     run_fail: "执行失败",
     follow_success: "关注成功",
     cancel_follow_success: "取消关注成功",
@@ -1339,6 +1340,9 @@ export default {
       config_environment: "配置环境",
       copy_environment: "复制环境",
       environment: "环境",
+      environment_type: "环境类型",
+      environment_json: "环境配置",
+      environment_group_id: "环境组ID",
       select_environment: "请选择环境",
       please_save_test: "请先保存测试",
       common_config: "通用配置",
@@ -2153,6 +2157,7 @@ export default {
       not_pass: "不通过",
       failure: "失败",
       blocking: "阻塞",
+      stop: "停止",
       skip: "跳过",
       actual_result: "实际结果",
       step_result: "步骤执行结果",
@@ -2291,6 +2296,7 @@ export default {
     update_resource_pool: '修改资源池',
     select_pool_type: '选择资源类型',
     max_threads: '最大并发数',
+    sync_jar: '定时同步JAR',
     input_pool_name: '请输入资源池名称',
     pool_name_valid: '资源池名称不支持特殊字符',
     cannot_remove_all_node: '不能删除所有独立节点',
@@ -2491,6 +2497,7 @@ export default {
   },
   variables: {
     cvs_info: "只能上传CSV文件",
+    csv_message: "默认展示2000条，完整的内容可点击下载查看。",
     end: "结束",
     start: "开始",
     increment: "增量",
@@ -2592,6 +2599,13 @@ export default {
     api_case: '接口用例'
   },
   permission: {
+    project_error_report_library: {
+      name: "误报库",
+      read: "查看误报",
+      create: "创建误报",
+      edit: "修改误报",
+      delete: "刪除误报",
+    },
     system_user: {
       name: "用户",
       read: "查询用户",
@@ -2884,6 +2898,25 @@ export default {
       performance: "性能测试",
       project: "项目设置",
       report: "报表统计"
+    }
+  },
+  env_options: {
+    all_assertions: "全局断言"
+  },
+  error_report_library: {
+    name: "误报库",
+    assertion: "误报断言",
+    use_error_report: "启用误报",
+    use_desc: "失败断言与误报规则冲突时统一处理为误报",
+    option: {
+      name: "误报",
+      error_code: "错误码",
+      match_type: "匹配类型",
+      status: "状态",
+      is_open: "启用状态",
+    },
+    match_type: {
+      text: "文本"
     }
   }
 };

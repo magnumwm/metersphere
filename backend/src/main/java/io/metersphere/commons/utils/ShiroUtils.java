@@ -15,7 +15,7 @@ public class ShiroUtils {
 
     public static void loadBaseFilterChain(Map<String, String> filterChainDefinitionMap) {
 
-        filterChainDefinitionMap.put("/resource/md/get/", "anon");
+        filterChainDefinitionMap.put("/resource/md/get", "anon");
         filterChainDefinitionMap.put("/*.worker.js", "anon");
         filterChainDefinitionMap.put("/login", "anon");
         filterChainDefinitionMap.put("/signin", "anon");
@@ -71,9 +71,6 @@ public class ShiroUtils {
         //mock接口
         filterChainDefinitionMap.put("/mock/**", "anon");
         filterChainDefinitionMap.put("/ws/**", "anon");
-
-        filterChainDefinitionMap.put("/plugin/**", "anon");
-
     }
 
     public static void ignoreCsrfFilter(Map<String, String> filterChainDefinitionMap) {
@@ -81,7 +78,6 @@ public class ShiroUtils {
         filterChainDefinitionMap.put("/language", "apikey, authc");// 跳转到 /language 不用校验 csrf
         filterChainDefinitionMap.put("/test/case/file/preview/**", "apikey, authc"); // 预览测试用例附件 不用校验 csrf
         filterChainDefinitionMap.put("/mock", "apikey, authc"); // 跳转到 /mock接口 不用校验 csrf
-        filterChainDefinitionMap.put("/resource/md/get/**", "apikey, authc");
     }
 
     public static Cookie getSessionIdCookie() {

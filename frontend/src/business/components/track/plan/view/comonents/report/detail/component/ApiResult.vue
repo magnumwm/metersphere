@@ -28,6 +28,7 @@ export default {
         ["Success", {name: this.$t('test_track.plan_view.pass'), itemStyle: {color: '#67C23A'}}],
         ["Pass", {name: this.$t('test_track.plan_view.pass'), itemStyle: {color: '#67C23A'}}],
         ["error", {name: this.$t('test_track.plan_view.failure'), itemStyle: {color: '#F56C6C'}}],
+        ["Error", {name: this.$t('test_track.plan_view.failure'), itemStyle: {color: '#F56C6C'}}],
         ["Fail", {name: this.$t('test_track.plan_view.failure'), itemStyle: {color: '#F56C6C'}}],
         ["Failure", {name: this.$t('test_track.plan_view.failure'), itemStyle: {color: '#F56C6C'}}],
         ["Prepare", {name: this.$t('api_test.home_page.detail_card.unexecute'), itemStyle: {color: '#909399'}}],
@@ -61,19 +62,23 @@ export default {
   methods: {
     getCaseCharData() {
       let caseCharData = [];
-      this.apiResult.apiCaseData.forEach(item => {
-        let data = this.getDataByStatus(item.status);
-        data.value = item.count;
-        caseCharData.push(data);
-      });
+      if (this.apiResult.apiCaseData) {
+        this.apiResult.apiCaseData.forEach(item => {
+          let data = this.getDataByStatus(item.status);
+          data.value = item.count;
+          caseCharData.push(data);
+        });
+      }
       this.caseCharData = caseCharData;
 
       let apiScenarioData = [];
-      this.apiResult.apiScenarioData.forEach(item => {
-        let data = this.getDataByStatus(item.status);
-        data.value = item.count;
-        apiScenarioData.push(data);
-      });
+      if (this.apiResult.apiScenarioData) {
+        this.apiResult.apiScenarioData.forEach(item => {
+          let data = this.getDataByStatus(item.status);
+          data.value = item.count;
+          apiScenarioData.push(data);
+        });
+      }
 
       let stepCharData = [];
       for (let i = 0; i < this.apiResult.apiScenarioStepData.length; i++) {

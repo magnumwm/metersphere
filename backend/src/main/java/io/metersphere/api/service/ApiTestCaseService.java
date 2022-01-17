@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.metersphere.api.dto.ApiCaseEditRequest;
-import io.metersphere.api.dto.ApiCaseRunRequest;
 import io.metersphere.api.dto.DeleteCheckResult;
 import io.metersphere.api.dto.JmxInfoDTO;
 import io.metersphere.api.dto.datacount.ApiDataCountResult;
@@ -16,20 +15,16 @@ import io.metersphere.api.dto.definition.request.MsTestPlan;
 import io.metersphere.api.dto.definition.request.MsThreadGroup;
 import io.metersphere.api.dto.definition.request.sampler.MsHTTPSamplerProxy;
 import io.metersphere.api.dto.scenario.request.RequestType;
-import io.metersphere.api.exec.api.ApiExecuteService;
-import io.metersphere.api.exec.utils.ApiDefinitionExecResultUtil;
 import io.metersphere.base.domain.*;
 import io.metersphere.base.mapper.*;
 import io.metersphere.base.mapper.ext.*;
 import io.metersphere.commons.constants.APITestStatus;
-import io.metersphere.commons.constants.ApiRunMode;
 import io.metersphere.commons.constants.MsTestElementConstants;
 import io.metersphere.commons.constants.TestPlanStatus;
 import io.metersphere.commons.exception.MSException;
 import io.metersphere.commons.utils.*;
 import io.metersphere.controller.request.OrderRequest;
 import io.metersphere.controller.request.ResetOrderRequest;
-import io.metersphere.dto.MsExecResponseDTO;
 import io.metersphere.i18n.Translator;
 import io.metersphere.log.utils.ReflexObjectUtil;
 import io.metersphere.log.vo.DetailColumn;
@@ -41,6 +36,7 @@ import io.metersphere.service.UserService;
 import io.metersphere.track.request.testcase.ApiCaseRelevanceRequest;
 import io.metersphere.track.service.TestPlanService;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
@@ -82,8 +78,6 @@ public class ApiTestCaseService {
     private ExtApiDefinitionExecResultMapper extApiDefinitionExecResultMapper;
     @Resource
     private ApiDefinitionMapper apiDefinitionMapper;
-    @Resource
-    private ApiExecuteService apiCaseExecuteService;
     @Resource
     private ApiDefinitionExecResultMapper apiDefinitionExecResultMapper;
     @Resource
@@ -136,8 +130,20 @@ public class ApiTestCaseService {
         if (CollectionUtils.isEmpty(apiTestCases)) {
             return apiTestCases;
         }
+        if (BooleanUtils.isTrue(request.isSelectEnvironment())) {
+            setCaseEnvironment(apiTestCases);
+        }
         buildUserInfo(apiTestCases);
         return apiTestCases;
+    }
+
+    public void setCaseEnvironment(List<ApiTestCaseDTO> apiTestCases) {
+        for (ApiTestCaseDTO apiCase : apiTestCases) {
+            ApiTestEnvironment environment = getApiCaseEnvironment(apiCase.getId());
+            if (environment != null) {
+                apiCase.setEnvironment(environment.getName());
+            }
+        }
     }
 
     public List<String> idSimple(ApiTestCaseRequest request) {
@@ -742,47 +748,6 @@ public class ApiTestCaseService {
         List<String> allIds = list.stream().map(ApiTestCaseDTO::getId).collect(Collectors.toList());
         List<String> ids = allIds.stream().filter(id -> !unSelectIds.contains(id)).collect(Collectors.toList());
         return ids;
-    }
-
-    public void batchRun(ApiCaseRunRequest request) {
-        apiCaseExecuteService.run(request);
-    }
-
-    public MsExecResponseDTO jenkinsRun(RunCaseRequest request) {
-        ApiTestCaseWithBLOBs caseWithBLOBs = null;
-        if (request.getBloBs() == null) {
-            caseWithBLOBs = apiTestCaseMapper.selectByPrimaryKey(request.getCaseId());
-            if (caseWithBLOBs == null) {
-                return null;
-            }
-            request.setBloBs(caseWithBLOBs);
-        } else {
-            caseWithBLOBs = request.getBloBs();
-        }
-        if (caseWithBLOBs == null) {
-            return null;
-        }
-        if (StringUtils.isBlank(request.getEnvironmentId())) {
-            request.setEnvironmentId(extApiTestCaseMapper.getApiCaseEnvironment(request.getCaseId()));
-        }
-        //提前生成报告
-        ApiDefinitionExecResult report = ApiDefinitionExecResultUtil.add(caseWithBLOBs.getId(), APITestStatus.Running.name(), request.getReportId());
-        report.setName(caseWithBLOBs.getName());
-        report.setTriggerMode(ApiRunMode.JENKINS.name());
-        report.setType(ApiRunMode.JENKINS.name());
-        apiDefinitionExecResultMapper.insert(report);
-        //更新接口案例的最后执行状态等信息
-        caseWithBLOBs.setLastResultId(report.getId());
-        caseWithBLOBs.setUpdateTime(System.currentTimeMillis());
-        caseWithBLOBs.setStatus(APITestStatus.Running.name());
-        apiTestCaseMapper.updateByPrimaryKey(caseWithBLOBs);
-        request.setReport(report);
-
-        if (StringUtils.isEmpty(request.getRunMode())) {
-            request.setRunMode(ApiRunMode.DEFINITION.name());
-        }
-
-        return apiCaseExecuteService.exec(request);
     }
 
     public String getExecResult(String id) {

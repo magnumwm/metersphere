@@ -6,8 +6,11 @@ import com.alibaba.fastjson.JSONObject;
 import io.metersphere.api.dto.ApiScenarioReportDTO;
 import io.metersphere.api.dto.StepTreeDTO;
 import io.metersphere.base.domain.*;
+import io.metersphere.base.mapper.ApiScenarioMapper;
 import io.metersphere.base.mapper.ApiScenarioReportResultMapper;
 import io.metersphere.base.mapper.ApiScenarioReportStructureMapper;
+import io.metersphere.commons.constants.MsTestElementConstants;
+import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.constants.RunModeConstants;
 import io.metersphere.dto.RequestResult;
 import io.metersphere.utils.LoggerUtil;
@@ -75,13 +78,16 @@ public class ApiScenarioReportStructureService {
         JSONObject element = JSON.parseObject(apiScenario.getScenarioDefinition());
         StepTreeDTO dto = null;
         if (element != null && element.getBoolean("enable")) {
-            String resourceId = element.getString("resourceId");
+            element = getRefElement(element);
+            String type = element.getString("type");
+            String resourceId = "JSR223Processor".equals(type) ? element.getString("resourceId") : element.getString("id");
             if (StringUtils.equals(reportType, RunModeConstants.SET_REPORT.toString())) {
                 if (StringUtils.isNotEmpty(resourceId) && StringUtils.isNotEmpty(apiScenario.getId()) && !resourceId.contains(apiScenario.getId())) {
-                    resourceId = apiScenario.getId() + "=" + element.getString("resourceId");
+                    resourceId = apiScenario.getId() + "=" + resourceId;
                 }
             }
-            dto = new StepTreeDTO(apiScenario.getName(), resourceId, element.getString("type"), element.getIntValue("index"));
+            dto = new StepTreeDTO(apiScenario.getName(), resourceId, element.getString("type"), 1);
+            dto.setAllIndex(null);
             if (element.containsKey("hashTree") && !requests.contains(dto.getType())) {
                 JSONArray elementJSONArray = element.getJSONArray("hashTree");
                 dataFormatting(elementJSONArray, dto, apiScenario.getId(), reportType);
@@ -90,17 +96,39 @@ public class ApiScenarioReportStructureService {
         return dto;
     }
 
+    private static JSONObject getRefElement(JSONObject element) {
+        String referenced = element.getString("referenced");
+        if (StringUtils.equals(referenced, MsTestElementConstants.REF.name())) {
+            if (StringUtils.equals(element.getString("type"), "scenario")) {
+                ApiScenarioWithBLOBs scenarioWithBLOBs = CommonBeanFactory.getBean(ApiScenarioMapper.class).selectByPrimaryKey(element.getString("id"));
+                if (scenarioWithBLOBs != null) {
+                    return JSON.parseObject(scenarioWithBLOBs.getScenarioDefinition());
+                }
+            }
+        }
+        return element;
+    }
+
     public static void dataFormatting(JSONArray hashTree, StepTreeDTO dto, String id, String reportType) {
         for (int i = 0; i < hashTree.size(); i++) {
             JSONObject element = hashTree.getJSONObject(i);
             if (element != null && element.getBoolean("enable")) {
-                String resourceId = element.getString("resourceId");
+                element = getRefElement(element);
+                String type = element.getString("type");
+                String resourceId = "JSR223Processor".equals(type) ? element.getString("resourceId") : element.getString("id");
                 if (StringUtils.equals(reportType, RunModeConstants.SET_REPORT.toString())) {
                     if (StringUtils.isNotEmpty(resourceId) && StringUtils.isNotEmpty(id) && !resourceId.contains(id)) {
-                        resourceId = id + "=" + element.getString("resourceId");
+                        resourceId = id + "=" + resourceId;
                     }
                 }
                 StepTreeDTO children = new StepTreeDTO(element.getString("name"), resourceId, element.getString("type"), element.getIntValue("index"));
+                if (StringUtils.isNotEmpty(dto.getAllIndex())) {
+                    children.setAllIndex(dto.getAllIndex() + "_" + (children.getIndex() == 0 ? (i + 1) : children.getIndex()));
+                    children.setResourceId(resourceId + "_" + children.getAllIndex());
+                } else {
+                    children.setAllIndex("" + (children.getIndex() == 0 ? (i + 1) : children.getIndex()));
+                    children.setResourceId(resourceId + "_" + children.getAllIndex());
+                }
                 dto.getChildren().add(children);
                 if (element.containsKey("hashTree") && !requests.contains(children.getType())) {
                     JSONArray elementJSONArray = element.getJSONArray("hashTree");
@@ -117,6 +145,31 @@ public class ApiScenarioReportStructureService {
                 break;
             } else if (CollectionUtils.isNotEmpty(step.getChildren())) {
                 scenarioCalculate(step.getChildren(), isError);
+            }
+        }
+    }
+
+    private void stepErrorCalculate(List<StepTreeDTO> dtoList, AtomicLong isError) {
+        for (StepTreeDTO step : dtoList) {
+            if (step.getValue() != null && step.getValue().getError() > 0) {
+                isError.set(isError.longValue() + 1);
+            } else if (CollectionUtils.isNotEmpty(step.getChildren())) {
+                AtomicLong isChildrenError = new AtomicLong();
+                stepChildrenErrorCalculate(step.getChildren(), isChildrenError);
+                if (isChildrenError.longValue() > 0) {
+                    isError.set(isError.longValue() + 1);
+                }
+            }
+        }
+    }
+
+    private void stepChildrenErrorCalculate(List<StepTreeDTO> dtoList, AtomicLong isError) {
+        for (StepTreeDTO step : dtoList) {
+            if (step.getValue() != null && step.getValue().getError() > 0) {
+                isError.set(isError.longValue() + 1);
+                break;
+            } else if (CollectionUtils.isNotEmpty(step.getChildren())) {
+                stepChildrenErrorCalculate(step.getChildren(), isError);
             }
         }
     }
@@ -147,11 +200,7 @@ public class ApiScenarioReportStructureService {
     private void calculateStep(List<StepTreeDTO> dtoList, AtomicLong stepError, AtomicLong stepTotal) {
         for (StepTreeDTO step : dtoList) {
             // 失败结果数量
-            AtomicLong error = new AtomicLong();
-            scenarioCalculate(step.getChildren(), error);
-            if (error.longValue() > 0) {
-                stepError.set((stepError.longValue() + 1));
-            }
+            stepErrorCalculate(step.getChildren(), stepError);
             if (CollectionUtils.isNotEmpty(step.getChildren())) {
                 stepTotal.set((stepTotal.longValue() + step.getChildren().size()));
             }
@@ -178,6 +227,11 @@ public class ApiScenarioReportStructureService {
                     String content = new String(reportResults.get(0).getContent(), StandardCharsets.UTF_8);
                     dto.setValue(JSON.parseObject(content, RequestResult.class));
                 }
+            }
+            if (StringUtils.isNotEmpty(dto.getType()) && requests.contains(dto.getType()) && dto.getValue() == null) {
+                RequestResult requestResult = new RequestResult();
+                requestResult.setName(dto.getLabel());
+                dto.setValue(requestResult);
             }
             if (CollectionUtils.isNotEmpty(dto.getChildren())) {
                 reportFormatting(dto.getChildren(), maps);
@@ -235,7 +289,7 @@ public class ApiScenarioReportStructureService {
             calculateStep(stepList, stepError, stepTotal);
             reportDTO.setScenarioStepTotal(stepTotal.longValue());
             reportDTO.setScenarioStepError(stepError.longValue());
-            reportDTO.setScenarioStepSuccess((stepList.size() - stepError.longValue()));
+            reportDTO.setScenarioStepSuccess((stepTotal.longValue() - stepError.longValue()));
 
             reportDTO.setConsole(scenarioReportStructure.getConsole());
             reportDTO.setSteps(stepList);

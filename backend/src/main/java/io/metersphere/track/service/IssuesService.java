@@ -442,8 +442,10 @@ public class IssuesService {
             IssuesRequest issuesRequest = new IssuesRequest();
             issuesRequest.setProjectId(projectId);
             issuesRequest.setWorkspaceId(project.getWorkspaceId());
-            String defaultCustomFields = getDefaultCustomFields(projectId);
-            issuesRequest.setDefaultCustomFields(defaultCustomFields);
+            if (!projectService.isThirdPartTemplate(projectId)) {
+                String defaultCustomFields = getDefaultCustomFields(projectId);
+                issuesRequest.setDefaultCustomFields(defaultCustomFields);
+            }
 
             if (CollectionUtils.isNotEmpty(tapdIssues)) {
                 TapdPlatform tapdPlatform = new TapdPlatform(issuesRequest);
@@ -470,6 +472,7 @@ public class IssuesService {
             }
         }
     }
+
 
     /**
      * 获取默认的自定义字段的取值，同步之后更新成第三方平台的值
@@ -560,7 +563,7 @@ public class IssuesService {
         Map<String, TestCaseReportStatusResultDTO> statusResultMap = new HashMap<>();
 
         planReportIssueDTOS.forEach(item -> {
-            String status = null;
+            String status;
             // 本地缺陷
             if (StringUtils.equalsIgnoreCase(item.getPlatform(), IssuesManagePlatform.Local.name())
                     || StringUtils.isBlank(item.getPlatform())) {
@@ -571,7 +574,7 @@ public class IssuesService {
             if (StringUtils.isBlank(status)) {
                 status = IssuesStatus.NEW.toString();
             }
-            TestPlanUtils.getStatusResultMap(statusResultMap, status);
+            TestPlanUtils.buildStatusResultMap(statusResultMap, status);
         });
         Set<String> status = statusResultMap.keySet();
         status.forEach(item -> {
