@@ -152,7 +152,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         JiraAddIssueResponse result = jiraClientV2.addIssue(JSONObject.toJSONString(addJiraIssueParam));
         JiraIssue issues = jiraClientV2.getIssues(result.getId());
 
-        List<File> imageFiles = getImageFiles(issuesRequest.getDescription());
+        List<File> imageFiles = getImageFiles(issuesRequest);
 
         imageFiles.forEach(img -> jiraClientV2.uploadAttachment(result.getKey(), img));
 
@@ -169,6 +169,24 @@ public class JiraPlatform extends AbstractIssuePlatform {
         handleTestCaseIssues(issuesRequest);
 
         return res;
+    }
+
+    private List<File> getImageFiles(IssuesUpdateRequest issuesRequest) {
+        List<File> files = getImageFiles(issuesRequest.getDescription());
+        List<CustomFieldItemDTO> customFields = CustomFieldService.getCustomFields(issuesRequest.getCustomFields());
+        customFields.forEach(item -> {
+            String fieldName = item.getCustomData();
+            if (StringUtils.isNotBlank(fieldName)) {
+                if (item.getValue() != null) {
+                    if (StringUtils.isNotBlank(item.getType())) {
+                        if (StringUtils.equalsAny(item.getType(),  "richText")) {
+                            files.addAll(getImageFiles(item.getValue().toString()));
+                        }
+                    }
+                }
+            }
+        });
+        return files;
     }
 
     private JSONObject buildUpdateParam(IssuesUpdateRequest issuesRequest, String issuetypeStr) {
@@ -255,6 +273,11 @@ public class JiraPlatform extends AbstractIssuePlatform {
                                     attr.put("id", item.getValue());
                                 }
                                 fields.put(fieldName, attr);
+                            }
+                        } else if (StringUtils.equalsAny(item.getType(),  "richText")) {
+                            fields.put(fieldName, removeImage(item.getValue().toString()));
+                            if (fieldName.equals("description")) {
+                                issuesRequest.setDescription(item.getValue().toString());
                             }
                         } else {
                             fields.put(fieldName, item.getValue());
