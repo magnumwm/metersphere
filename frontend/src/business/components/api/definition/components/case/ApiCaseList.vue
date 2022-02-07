@@ -6,6 +6,7 @@
           :api="api"
           @setEnvironment="setEnvironment"
           @addCase="addCase"
+          @saveCase="saveCase(apiCaseList[0])"
           :condition="condition"
           :priorities="priorities"
           :project-id="projectId"
@@ -16,9 +17,8 @@
 
       <el-container v-if="!result.loading">
         <el-main>
-          <div v-for="(item,index) in apiCaseList" :key="item.id ? item.id : item.uuid">
             <api-case-item
-              :loading="singleLoading && singleRunId === item.id || batchLoadingIds.indexOf(item.id) > -1"
+              :loading="singleLoading && singleRunId === apiCaseList[0].id || batchLoadingIds.indexOf(apiCaseList[0].id) > -1"
               @refresh="refresh"
               @singleRun="singleRun"
               @stop="stop"
@@ -34,8 +34,7 @@
               :loaded="loaded"
               :runResult="runResult"
               :maintainerOptions="maintainerOptions"
-              :api-case="item" :index="index" ref="apiCaseItem"/>
-          </div>
+              :api-case="apiCaseList[0]" ref="apiCaseItem"/>
         </el-main>
       </el-container>
     </ms-drawer>
@@ -151,6 +150,7 @@ export default {
     },
     copy(apiCase) {
       this.api.id = apiCase.apiDefinitionId;
+      this.api.versionId = apiCase.versionId;
       if (apiCase && apiCase.request) {
         if (apiCase.request.type === "HTTPSamplerProxy") {
           this.api.protocol = "HTTP";
@@ -177,6 +177,9 @@ export default {
         });
       }
       this.visible = true;
+    },
+    saveCase(item , hideAlert) {
+      this.$refs.apiCaseItem.saveTestCase(item ,hideAlert);
     },
     saveApiAndCase(api) {
       if (api && api.url) {

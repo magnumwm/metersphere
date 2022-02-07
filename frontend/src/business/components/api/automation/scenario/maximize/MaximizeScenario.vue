@@ -35,7 +35,7 @@
                    @node-expand="nodeExpand"
                    @node-collapse="nodeCollapse"
                    :allow-drop="allowDrop" @node-drag-end="allowDrag" @node-click="nodeClick">
-              <span class="custom-tree-node father" slot-scope="{ node, data}">
+              <span class="custom-tree-node father" slot-scope="{ node, data}" style="width: 96%">
                 <!-- 步骤组件-->
                  <ms-component-config
                    :isMax="true"
@@ -88,7 +88,9 @@
             :node="selectedNode"
             :project-list="projectList"
             :env-map="projectEnvMap"
+            :scenario-definition="scenarioDefinition"
             :draggable="false"
+            @editScenarioAdvance="editScenarioAdvance"
             @remove="remove" @copyRow="copyRow" @suggestClick="suggestClick" @refReload="refReload" @openScenario="openScenario"
             v-if="selectedTreeNode && selectedNode"/>
           <!-- 请求下还有的子步骤-->
@@ -899,7 +901,10 @@ export default {
     },
     stopScenario(){
       this.$emit('stopScenario');
-    }
+    },
+    editScenarioAdvance(data) {
+      this.$emit('editScenarioAdvance', data);
+    },
   }
 }
 </script>

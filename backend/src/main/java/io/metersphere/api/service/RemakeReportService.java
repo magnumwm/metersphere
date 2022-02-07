@@ -1,15 +1,15 @@
 package io.metersphere.api.service;
 
 import io.metersphere.api.dto.automation.ScenarioStatus;
-import io.metersphere.api.jmeter.MessageCache;
 import io.metersphere.base.domain.*;
 import io.metersphere.base.mapper.*;
 import io.metersphere.commons.constants.APITestStatus;
 import io.metersphere.commons.constants.ApiRunMode;
+import io.metersphere.commons.utils.BeanUtils;
 import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.commons.utils.LogUtil;
-import io.metersphere.constants.RunModeConstants;
 import io.metersphere.dto.JmeterRunRequestDTO;
+import io.metersphere.dto.ResultDTO;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +34,6 @@ public class RemakeReportService {
 
     public void remake(JmeterRunRequestDTO request) {
         try {
-            if (StringUtils.equals(request.getReportType(), RunModeConstants.SET_REPORT.toString())) {
-                ApiExecutionQueueDetailExample example = new ApiExecutionQueueDetailExample();
-                example.createCriteria().andQueueIdEqualTo(request.getQueueId()).andTestIdEqualTo(request.getTestId());
-                CommonBeanFactory.getBean(ApiExecutionQueueDetailMapper.class).deleteByExample(example);
-
-                CommonBeanFactory.getBean(ApiExecutionQueueService.class).edit(request.getQueueId(), request.getTestId());
-            }
             // 清理零时报告
             if (StringUtils.equalsAnyIgnoreCase(request.getRunMode(), ApiRunMode.API_PLAN.name(), ApiRunMode.SCHEDULE_API_PLAN.name(), ApiRunMode.JENKINS_API_PLAN.name())) {
                 ApiDefinitionExecResult result = execResultMapper.selectByPrimaryKey(request.getReportId());
@@ -114,6 +107,15 @@ public class RemakeReportService {
                     }
                 }
             }
+            // 处理队列
+            ApiExecutionQueueDetailExample example = new ApiExecutionQueueDetailExample();
+            example.createCriteria().andQueueIdEqualTo(request.getQueueId()).andTestIdEqualTo(request.getTestId());
+            CommonBeanFactory.getBean(ApiExecutionQueueDetailMapper.class).deleteByExample(example);
+            ResultDTO dto = new ResultDTO();
+            BeanUtils.copyBean(dto, request);
+            dto.setQueueId(request.getQueueId());
+            dto.setTestId(request.getTestId());
+            CommonBeanFactory.getBean(ApiExecutionQueueService.class).queueNext(dto);
         } catch (Exception e) {
             LogUtil.error(e);
         }
@@ -141,6 +143,6 @@ public class RemakeReportService {
             apiScenarioMapper.updateByPrimaryKey(scenarioWithBLOBs);
         }
         report.setStatus(APITestStatus.Error.name());
-        apiScenarioReportMapper.insert(report);
+        apiScenarioReportMapper.updateByPrimaryKeySelective(report);
     }
 }

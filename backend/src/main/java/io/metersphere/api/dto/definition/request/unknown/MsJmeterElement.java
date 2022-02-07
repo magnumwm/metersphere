@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @JSONType(typeName = "JmeterElement")
 public class MsJmeterElement extends MsTestElement {
     private String type = "JmeterElement";
-    private String clazzName = "io.metersphere.api.dto.definition.request.unknown.MsJmeterElement";
+    private String clazzName = MsJmeterElement.class.getCanonicalName();
 
     private String elementType;
     private String jmeterElement;
@@ -94,7 +94,6 @@ public class MsJmeterElement extends MsTestElement {
                         }
                     }
                 }
-
             }
         } catch (Exception ex) {
             ex.printStackTrace();

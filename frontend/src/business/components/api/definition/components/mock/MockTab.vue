@@ -1,6 +1,9 @@
 <template>
   <div>
     <div>
+      <div class="ms-opt-btn" v-if="versionEnable">
+        {{ $t('project.version.name') }}: {{ mockConfigData.versionName }}
+      </div>
       <el-input :placeholder="$t('commons.search_by_name')" class="search-input" size="small"
                 :clearable="true"
                 v-model="tableSearch"/>
@@ -78,7 +81,7 @@
 
 <script>
 
-import {getCurrentProjectID, getUUID} from "@/common/js/utils";
+import {getCurrentProjectID, hasLicense} from "@/common/js/utils";
 import MockEditDrawer from "@/business/components/api/definition/components/mock/MockEditDrawer";
 import MsTable from "@/business/components/common/components/table/MsTable";
 import MsTableColumn from "@/business/components/common/components/table/MsTableColumn";
@@ -121,13 +124,18 @@ export default {
           permissions: ['PROJECT_TRACK_REVIEW:READ+RELEVANCE_OR_CANCEL']
         }
       ],
+      versionEnable: false,
     };
   },
 
   watch: {
+    baseMockConfigData(){
+      this.mockConfigData = this.baseMockConfigData;
+    }
   },
   created() {
     this.mockConfigData = this.baseMockConfigData;
+    this.checkVersionEnable();
   },
   computed: {
     projectId() {
@@ -247,6 +255,16 @@ export default {
         this.mockConfigData = response.data;
       });
     },
+    checkVersionEnable() {
+      if (!this.projectId) {
+        return;
+      }
+      if (hasLicense()) {
+        this.$get('/project/version/enable/' + this.projectId, response => {
+          this.versionEnable = response.data;
+        });
+      }
+    }
   }
 };
 </script>

@@ -8,6 +8,7 @@ import io.metersphere.track.dto.TestCaseDTO;
 import io.metersphere.track.request.testcase.QueryTestCaseRequest;
 import io.metersphere.track.request.testcase.TestCaseBatchRequest;
 import io.metersphere.track.response.TrackCountResult;
+import org.apache.ibatis.annotations.MapKey;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -38,7 +39,7 @@ public interface ExtTestCaseMapper {
      * @param request
      * @return
      */
-    List<TestCase> getTestCaseByNotInPlan(@Param("request") QueryTestCaseRequest request);
+    List<TestCaseDTO> getTestCaseByNotInPlan(@Param("request") QueryTestCaseRequest request);
 
     /**
      * 获取不在测试缺陷中的用例
@@ -54,7 +55,7 @@ public interface ExtTestCaseMapper {
      * @param request
      * @return
      */
-    List<TestCase> getTestCaseByNotInReview(@Param("request") QueryTestCaseRequest request);
+    List<TestCaseDTO> getTestCaseByNotInReview(@Param("request") QueryTestCaseRequest request);
 
     /**
      * 检查某工作空间下是否有某用例
@@ -67,8 +68,11 @@ public interface ExtTestCaseMapper {
 
     List<String> selectIds(@Param("request") BaseQueryRequest condition);
 
+    List<String> selectPublicIds(@Param("request") BaseQueryRequest condition);
+
     /**
      * 按照用例等级统计
+     *
      * @param projectId 项目ID
      * @return 统计结果
      */
@@ -80,7 +84,7 @@ public interface ExtTestCaseMapper {
 
     List<TrackCountResult> countRelevance(@Param("projectId") String projectId);
 
-    long countRelevanceCreatedThisWeek(@Param("projectId") String projectId,@Param("firstDayTimestamp") long firstDayTimestamp, @Param("lastDayTimestamp") long lastDayTimestamp);
+    long countRelevanceCreatedThisWeek(@Param("projectId") String projectId, @Param("firstDayTimestamp") long firstDayTimestamp, @Param("lastDayTimestamp") long lastDayTimestamp);
 
     int countCoverage(@Param("projectId") String projectId);
 
@@ -89,13 +93,15 @@ public interface ExtTestCaseMapper {
     List<TrackCountResult> countRelevanceMaintainer(@Param("projectId") String projectId);
 
     int getTestPlanBug(@Param("planId") String planId);
+
     int getTestPlanCase(@Param("planId") String planId);
+
     int getTestPlanPassCase(@Param("planId") String planId);
 
 
     List<TestCaseDTO> listForMinder(@Param("request") QueryTestCaseRequest request);
 
-    List<TestCaseDTO> getTestCaseByIds(@Param("ids")List<String> ids);
+    List<TestCaseDTO> getTestCaseByIds(@Param("ids") List<String> ids);
 
     void updateTestCaseCustomNumByProjectId(@Param("projectId") String projectId);
 
@@ -121,11 +127,11 @@ public interface ExtTestCaseMapper {
 
     List<String> getIdsOrderByUpdateTime(@Param("projectId") String projectId);
 
-    Long getLastOrder(@Param("projectId")String projectId, @Param("baseOrder") Long baseOrder);
+    Long getLastOrder(@Param("projectId") String projectId, @Param("baseOrder") Long baseOrder);
 
     Long getPreOrder(@Param("projectId") String projectId, @Param("baseOrder") Long baseOrder);
 
-    List<TestCase> getTestCase(@Param("request") QueryTestCaseRequest request);
+    List<TestCaseDTO> getTestCase(@Param("request") QueryTestCaseRequest request);
 
     List<RelationshipGraphData.Node> getTestCaseForGraph(@Param("ids") Set<String> ids);
 
@@ -134,4 +140,13 @@ public interface ExtTestCaseMapper {
     String getLastExecStatusById(String id);
 
     int countByWorkSpaceId(String workSpaceId);
+
+    long trashCount(@Param("projectId") String projectId);
+
+    List<String> selectRefIdsForVersionChange(@Param("versionId") String versionId, @Param("projectId") String projectId);
+
+    int addLatestVersion(@Param("refId") String refId);
+
+    @MapKey("id")
+    Map<String, TestCase> getMaintainerMap(@Param("request") QueryTestCaseRequest request);
 }

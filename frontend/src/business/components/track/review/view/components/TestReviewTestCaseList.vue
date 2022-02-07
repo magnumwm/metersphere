@@ -8,6 +8,7 @@
         <ms-table-button v-permission="['PROJECT_TRACK_REVIEW:READ+RELEVANCE_OR_CANCEL']" icon="el-icon-connection"
                          :content="$t('test_track.review_view.relevance_case')"
                          @click="$emit('openTestReviewRelevanceDialog')"/>
+
       </template>
     </ms-table-header>
 
@@ -15,7 +16,6 @@
                    @refresh="initTableData"/>
     <status-edit ref="statusEdit" :plan-id="reviewId"
                  :select-ids="new Set(Array.from(this.selectRows).map(row => row.id))" @refresh="initTableData"/>
-
     <ms-table
       v-loading="result.loading"
       :field-key="tableHeaderKey"
@@ -52,6 +52,19 @@
           :fields-width="fieldsWidth"
           :label="$t('commons.name')"
           min-width="120px"/>
+
+        <ms-table-column
+          v-if="versionEnable"
+          prop="versionId"
+          :field="item"
+          :filters="versionFilters"
+          :fields-width="fieldsWidth"
+          :label="$t('commons.version')"
+          min-width="120px">
+          <template v-slot:default="scope">
+            <span>{{ scope.row.versionName }}</span>
+          </template>
+        </ms-table-column>
 
         <ms-table-column
           prop="priority"
@@ -141,8 +154,14 @@
     <test-review-test-case-edit
       ref="testReviewTestCaseEdit"
       :search-param="condition"
+      :page-num="currentPage"
+      :page-size="pageSize"
+      @nextPage="nextPage"
+      @prePage="prePage"
       @refresh="initTableData"
+      :test-cases="tableData"
       :is-read-only="isReadOnly"
+      :total="total"
       @refreshTable="search"/>
 
 
@@ -185,6 +204,7 @@ import MsTableHeaderSelectPopover from "@/business/components/common/components/
 import MsTableColumn from "@/business/components/common/components/table/MsTableColumn";
 import MsTable from "@/business/components/common/components/table/MsTable";
 import {editTestReviewTestCaseOrder} from "@/network/testCase";
+import {getCurrentProjectID, hasLicense} from "@/common/js/utils";
 
 export default {
   name: "TestReviewTestCaseList",
@@ -270,12 +290,20 @@ export default {
           {name: this.$t('test_track.review.un_pass'), id: 'UnPass'},
         ]
       },
+      versionFilters: []
     };
   },
   props: {
     reviewId: {
       type: String
     },
+    currentVersion: {
+      type: String
+    },
+    versionEnable: {
+      type: Boolean,
+      default: false
+    }
   },
   watch: {
     reviewId() {
@@ -287,6 +315,10 @@ export default {
     condition() {
       this.$emit('setCondition', this.condition);
     },
+    currentVersion() {
+      this.condition.versionId = this.currentVersion;
+      this.initTableData();
+    }
   },
   computed: {
     selectNodeIds() {
@@ -304,8 +336,21 @@ export default {
     this.refreshTableAndReview();
     this.isTestManagerOrTestUser = true;
     this.initTableHeader();
+    this.getVersionOptions();
   },
   methods: {
+    nextPage() {
+      this.currentPage++;
+      this.initTableData(() => {
+        this.$refs.testReviewTestCaseEdit.openTestCaseEdit(this.tableData[0], this.tableData);
+      });
+    },
+    prePage() {
+      this.currentPage--;
+      this.initTableData(() => {
+        this.$refs.testReviewTestCaseEdit.openTestCaseEdit(this.tableData[this.tableData.length - 1], this.tableData);
+      });
+    },
     initTableHeader() {
       this.result.loading = true;
       this.fields = getTableHeaderWithCustomFields(this.tableHeaderKey, []);
@@ -316,7 +361,7 @@ export default {
       const list = deepClone(this.tableLabel);
       this.$refs.headerCustom.open(list);
     },
-    initTableData() {
+    initTableData(callback) {
       initCondition(this.condition, this.condition.selectAll);
       if (this.reviewId) {
         this.condition.reviewId = this.reviewId;
@@ -338,13 +383,16 @@ export default {
           this.total = data.itemCount;
           this.tableData = data.listObject;
           this.tableClear();
+          if (callback) {
+            callback();
+          }
         });
       }
 
     },
     showDetail(row, event, column) {
       this.isReadOnly = true;
-      this.$refs.testReviewTestCaseEdit.openTestCaseEdit(row);
+      this.$refs.testReviewTestCaseEdit.openTestCaseEdit(row, this.tableData);
     },
     refresh() {
       this.condition = {components: TEST_CASE_CONFIGS};
@@ -369,7 +417,7 @@ export default {
     },
     handleEdit(testCase, index) {
       this.isReadOnly = false;
-      this.$refs.testReviewTestCaseEdit.openTestCaseEdit(testCase);
+      this.$refs.testReviewTestCaseEdit.openTestCaseEdit(testCase, this.tableData);
     },
     handleDelete(testCase) {
       this.$alert(this.$t('test_track.plan_view.confirm_cancel_relevance') + ' ' + testCase.name + " ？", '', {
@@ -406,7 +454,7 @@ export default {
       });
     },
     handleEditBatch() {
-      this.$refs.batchEdit.open(this.$refs.table.selectRows.size);
+      this.$refs.batchEdit.open(this.condition.selectAll ? this.total : this.$refs.table.selectRows.size);
     },
     batchEdit(form) {
       let reviewId = this.reviewId;
@@ -436,7 +484,7 @@ export default {
     startReview() {
       if (this.tableData.length !== 0) {
         this.isReadOnly = false;
-        this.$refs.testReviewTestCaseEdit.openTestCaseEdit(this.tableData[0]);
+        this.$refs.testReviewTestCaseEdit.openTestCaseEdit(this.tableData[0], this.tableData);
       } else {
         this.$warning(this.$t('test_track.review.no_link_case'));
       }
@@ -456,7 +504,16 @@ export default {
       if (this.$refs.table) {
         this.$refs.table.clear();
       }
-    }
+    },
+    getVersionOptions() {
+      if (hasLicense()) {
+        this.$get('/project/version/get-project-versions/' + getCurrentProjectID(), response => {
+          this.versionFilters = response.data.map(u => {
+            return {text: u.name, value: u.id};
+          });
+        });
+      }
+    },
   }
 };
 </script>

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.metersphere.api.dto.EnvironmentType;
+import io.metersphere.api.dto.definition.request.controller.MsCriticalSectionController;
 import io.metersphere.api.dto.definition.request.variable.ScenarioVariable;
 import io.metersphere.api.dto.mockconfig.MockConfigStaticData;
 import io.metersphere.api.dto.scenario.KeyValue;
@@ -46,7 +47,7 @@ import java.util.stream.Collectors;
 public class MsScenario extends MsTestElement {
 
     private String type = "scenario";
-    private String clazzName = "io.metersphere.api.dto.definition.request.MsScenario";
+    private String clazzName = MsScenario.class.getCanonicalName();
 
     @JSONField(ordinal = 21)
     private String referenced;
@@ -123,6 +124,8 @@ public class MsScenario extends MsTestElement {
                     }
                     this.setHashTree(sourceHashTree);
                     hashTree = sourceHashTree;
+                } else {
+                    return;
                 }
 
             } catch (Exception ex) {
@@ -156,14 +159,21 @@ public class MsScenario extends MsTestElement {
         if (CollectionUtils.isNotEmpty(this.getVariables())) {
             config.setVariables(this.variables);
         }
+        HashTree scenarioTree = tree;
+        if (config != null && !config.getExcludeScenarioIds().contains(this.getId())) {
+            scenarioTree = MsCriticalSectionController.createHashTree(tree, this.getName());
+        }
         // 场景变量和环境变量
         Arguments arguments = arguments(config);
         if (arguments != null) {
-            tree.add(ParameterConfig.valueSupposeMock(arguments));
+            Arguments valueSupposeMock = ParameterConfig.valueSupposeMock(arguments);
+            // 这里加入自定义变量解决ForEach循环控制器取值问题，循环控制器无法从vars中取值
+            scenarioTree.add(valueSupposeMock);
+            scenarioTree.add(ElementUtil.argumentsToProcessor(valueSupposeMock));
         }
-        ElementUtil.addCsvDataSet(tree, variables, config, "shareMode.group");
-        ElementUtil.addCounter(tree, variables, false);
-        ElementUtil.addRandom(tree, variables);
+        ElementUtil.addCsvDataSet(scenarioTree, variables, config, "shareMode.group");
+        ElementUtil.addCounter(scenarioTree, variables, false);
+        ElementUtil.addRandom(scenarioTree, variables);
         if (CollectionUtils.isNotEmpty(this.headers)) {
             config.setHeaders(this.headers);
         }
@@ -203,9 +213,9 @@ public class MsScenario extends MsTestElement {
                 el.setParent(this);
                 el.setMockEnvironment(this.isMockEnvironment());
                 if (this.isEnvironmentEnable()) {
-                    el.toHashTree(tree, el.getHashTree(), newConfig);
+                    el.toHashTree(scenarioTree, el.getHashTree(), newConfig);
                 } else {
-                    el.toHashTree(tree, el.getHashTree(), config);
+                    el.toHashTree(scenarioTree, el.getHashTree(), config);
                 }
             }
         }

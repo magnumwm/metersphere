@@ -9,6 +9,7 @@
       :color="defColor"
       :is-max="isMax"
       :show-btn="showBtn"
+      :show-version="showVersion"
       :background-color="defBackgroundColor"
       :title="pluginName">
 
@@ -123,6 +124,10 @@ export default {
       default: false,
     },
     showBtn: {
+      type: Boolean,
+      default: true,
+    },
+    showVersion: {
       type: Boolean,
       default: true,
     },
@@ -299,6 +304,7 @@ export default {
             }
           } else {
             this.request.enable = false;
+            this.request.plugin_del = true;
           }
         });
       }

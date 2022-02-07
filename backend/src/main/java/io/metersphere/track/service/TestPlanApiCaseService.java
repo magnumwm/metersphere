@@ -17,6 +17,7 @@ import io.metersphere.base.mapper.ApiTestCaseMapper;
 import io.metersphere.base.mapper.TestPlanApiCaseMapper;
 import io.metersphere.base.mapper.TestPlanMapper;
 import io.metersphere.base.mapper.ext.ExtTestPlanApiCaseMapper;
+import io.metersphere.commons.constants.ExecuteResult;
 import io.metersphere.commons.utils.*;
 import io.metersphere.controller.request.ResetOrderRequest;
 import io.metersphere.dto.MsExecResponseDTO;
@@ -79,6 +80,7 @@ public class TestPlanApiCaseService {
         request.setProjectId(null);
         request.setOrders(ServiceUtils.getDefaultSortOrder(request.getOrders()));
         List<TestPlanApiCaseDTO> apiTestCases = extTestPlanApiCaseMapper.list(request);
+        ServiceUtils.buildVersionInfo(apiTestCases);
         if (CollectionUtils.isEmpty(apiTestCases)) {
             return apiTestCases;
         }
@@ -243,6 +245,7 @@ public class TestPlanApiCaseService {
         ApiTestCaseRequest selectReq = new ApiTestCaseRequest();
         selectReq.setIds(ids);
         List<TestPlanApiCaseDTO> returnList = extTestPlanApiCaseMapper.list(selectReq);
+        ServiceUtils.buildVersionInfo(returnList);
         return returnList;
     }
 
@@ -433,6 +436,11 @@ public class TestPlanApiCaseService {
                 dto.setExecResult(status);
             }
         }
+        return buildCases(apiTestCases);
+    }
+
+    public List<TestPlanFailureApiDTO> getErrorReportCases(String planId) {
+        List<TestPlanFailureApiDTO> apiTestCases = extTestPlanApiCaseMapper.getFailureList(planId, ExecuteResult.errorReportResult.name());
         return buildCases(apiTestCases);
     }
 }

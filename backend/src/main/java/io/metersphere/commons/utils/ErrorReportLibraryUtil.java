@@ -20,30 +20,41 @@ public class ErrorReportLibraryUtil {
         ErrorReportLibraryParseDTO returnDTO = new ErrorReportLibraryParseDTO();
         if (result != null && result.getResponseResult() != null && CollectionUtils.isNotEmpty(result.getResponseResult().getAssertions())) {
             List<ResponseAssertionResult> errorReportAssertionList = new ArrayList<>();
+            boolean hasOtherErrorAssertion = false;
+            int otherAssertionCount = 0;
             for (ResponseAssertionResult assertion : result.getResponseResult().getAssertions()) {
                 if (StringUtils.startsWith(assertion.getContent(), ERROR_CODE_START)) {
                     errorReportAssertionList.add(assertion);
+                }else {
+                    otherAssertionCount ++;
+                    if(!assertion.isPass()){
+                        hasOtherErrorAssertion = true;
+                    }
                 }
             }
             if (CollectionUtils.isNotEmpty(errorReportAssertionList)) {
-                List<ResponseAssertionResult> removeList = new ArrayList<>();
+                List<ResponseAssertionResult> unMatchErrorReportAssertions = new ArrayList<>();
                 for (ResponseAssertionResult assertion : errorReportAssertionList) {
                     if (assertion.isPass()) {
                         String errorCode = StringUtils.substring(assertion.getContent(), ERROR_CODE_START.length());
                         returnDTO.getErrorCodeList().add(errorCode);
                     } else {
-                        removeList.add(assertion);
+                        unMatchErrorReportAssertions.add(assertion);
                     }
                 }
 
-                if (CollectionUtils.isNotEmpty(removeList)) {
-                    if (result.getError() > 0) {
-                        result.setError(result.getError() - 1);
+                if (CollectionUtils.isNotEmpty(unMatchErrorReportAssertions)) {
+                    // 未被误报断言匹配到的结果，清除该请求的误报断言记录，并将断言涉及到的统计结果恢复正常
+                    if (result.getResponseResult() != null
+                            && StringUtils.equalsIgnoreCase(result.getResponseResult().getResponseCode(), "200")
+                            && result.getError() > 0) {
+                        if(otherAssertionCount == 0 || !hasOtherErrorAssertion){
+                            result.setError(result.getError() - 1);
+                        }
                     }
-                    result.setTotalAssertions(result.getTotalAssertions() - removeList.size());
-                    result.getResponseResult().getAssertions().removeAll(removeList);
-                    //修改由于误报断言导致的执行结果
-                    if(result.getError() == 0 && !result.isSuccess()){
+                    result.setTotalAssertions(result.getTotalAssertions() - unMatchErrorReportAssertions.size());
+                    result.getResponseResult().getAssertions().removeAll(unMatchErrorReportAssertions);
+                    if (result.getError() == 0 && !result.isSuccess()) {
                         result.setSuccess(true);
                     }
                 }

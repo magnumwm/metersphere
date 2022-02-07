@@ -11,21 +11,33 @@
       :background-color="displayColor.backgroundColor"
       :is-max="isMax"
       :show-btn="showBtn"
-      :title="displayTitle">
+      :show-version="showVersion"
+      :title="displayTitle"
+      :if-from-variable-advance="ifFromVariableAdvance">
 
       <template v-slot:afterTitle v-if="(request.refType==='API'|| request.refType==='CASE')&&isSameSpace">
         <span v-if="isShowNum" @click="clickResource(request)">{{ "（ ID: " + request.num + "）" }}</span>
         <span v-else>
-          <el-tooltip class="ms-num" effect="dark" :content="request.refType==='API'?$t('api_test.automation.scenario.api_none'):$t('api_test.automation.scenario.case_none')" placement="top">
+          <el-tooltip class="ms-num" effect="dark"
+                      :content="request.refType==='API'?$t('api_test.automation.scenario.api_none'):$t('api_test.automation.scenario.case_none')"
+                      placement="top">
             <i class="el-icon-warning"/>
           </el-tooltip>
         </span>
+        <span v-xpack v-if="request.versionEnable&&showVersion">{{ $t('project.version.name') }}: {{
+            request.versionName
+          }}</span>
       </template>
 
       <template v-slot:behindHeaderLeft>
-        <el-tag size="mini" class="ms-tag" v-if="request.referenced==='Deleted'" type="danger">{{ $t('api_test.automation.reference_deleted') }}</el-tag>
+        <el-tag size="mini" class="ms-tag" v-if="request.referenced==='Deleted'" type="danger">
+          {{ $t('api_test.automation.reference_deleted') }}
+        </el-tag>
         <el-tag size="mini" class="ms-tag" v-if="request.referenced==='Copy'">{{ $t('commons.copy') }}</el-tag>
-        <el-tag size="mini" class="ms-tag" v-if="request.referenced ==='REF'">{{ $t('api_test.scenario.reference') }}</el-tag>
+        <el-tag size="mini" class="ms-tag" v-if="request.referenced ==='REF'">{{
+            $t('api_test.scenario.reference')
+          }}
+        </el-tag>
         <span class="ms-tag ms-step-name-api">{{ getProjectName(request.projectId) }}</span>
       </template>
       <template v-slot:debugStepCode>
@@ -33,16 +45,24 @@
            <i class="el-icon-loading" style="font-size: 16px"/>
            {{ $t('commons.testing') }}
          </span>
-        <span class="ms-step-debug-code" :class="request.requestResult[0].success && reqSuccess?'ms-req-success':'ms-req-error'" v-if="!loading &&!request.testing && request.debug && request.requestResult[0] && request.requestResult[0].responseResult">
+        <!--  场景调试步骤增加误报判断  -->
+        <span class="ms-step-debug-code" :class="'ms-req-error-report'" v-if="!loading &&!request.testing && request.debug && request.requestResult[0] && request.requestResult[0].responseResult && request.requestResult[0].status==='errorReportResult'">
+          {{ $t("error_report_library.option.name") }}
+        </span>
+        <span class="ms-step-debug-code"
+              @click="active"
+              :class="request.requestResult[0].success && reqSuccess?'ms-req-success':'ms-req-error'"
+              v-else-if="!loading &&!request.testing && request.debug && request.requestResult[0] && request.requestResult[0].responseResult">
           {{ request.requestResult[0].success && reqSuccess ? 'success' : 'error' }}
         </span>
       </template>
-      <template v-slot:button>
+      <template v-slot:button v-if="!ifFromVariableAdvance">
         <el-tooltip :content="$t('api_test.run')" placement="top" v-if="!loading">
           <el-button @click="run" icon="el-icon-video-play" style="padding: 5px" class="ms-btn" size="mini" circle/>
         </el-tooltip>
         <el-tooltip :content="$t('report.stop_btn')" placement="top" :enterable="false" v-else>
-          <el-button @click.once="stop" size="mini" style="color:white;padding: 0 0.1px;width: 24px;height: 24px;" class="stop-btn" circle>
+          <el-button @click.once="stop" size="mini" style="color:white;padding: 0 0.1px;width: 24px;height: 24px;"
+                     class="stop-btn" circle>
             <div style="transform: scale(0.66)">
               <span style="margin-left: -4.5px;font-weight: bold;">STOP</span>
             </div>
@@ -52,37 +72,43 @@
       <!--请求内容-->
       <template v-slot:request>
         <legend style="width: 100%">
-          <customize-req-info :is-customize-req="isCustomizeReq" :request="request" @setDomain="setDomain"/>
-          <p class="tip">{{ $t('api_test.definition.request.req_param') }} </p>
-          <ms-api-request-form
-            v-if="request.protocol==='HTTP' || request.type==='HTTPSamplerProxy'"
-            :isShowEnable="true"
-            :referenced="true"
-            :headers="request.headers "
-            :is-read-only="isCompReadOnly"
-            :request="request"/>
-          <esb-definition
-            v-if="showXpackCompnent&&request.esbDataStruct!=null"
-            v-xpack
-            :request="request"
-            :showScript="false"
-            :is-read-only="isCompReadOnly" ref="esbDefinition"/>
-          <ms-tcp-format-parameters
-            v-if="(request.protocol==='TCP'|| request.type==='TCPSampler')&& request.esbDataStruct==null "
-            :is-read-only="isCompReadOnly"
-            :show-script="false" :request="request"/>
+          <div v-if="!ifFromVariableAdvance">
 
-          <ms-sql-basis-parameters
-            v-if="request.protocol==='SQL'|| request.type==='JDBCSampler'"
-            :request="request"
-            :is-read-only="isCompReadOnly"
-            :showScript="false"/>
+            <customize-req-info :is-customize-req="isCustomizeReq" :request="request" @setDomain="setDomain"/>
+            <p class="tip">{{ $t('api_test.definition.request.req_param') }} </p>
+            <ms-api-request-form
+              v-if="request.protocol==='HTTP' || request.type==='HTTPSamplerProxy'"
+              :scenario-definition="scenarioDefinition"
+              @editScenarioAdvance="editScenarioAdvance"
+              :isShowEnable="true"
+              :referenced="true"
+              :headers="request.headers "
+              :is-read-only="isCompReadOnly"
+              :request="request"/>
+            <esb-definition
+              v-if="showXpackCompnent&&request.esbDataStruct!=null"
+              v-xpack
+              :request="request"
+              :showScript="false"
+              :is-read-only="isCompReadOnly" ref="esbDefinition"/>
+            <ms-tcp-format-parameters
+              v-if="(request.protocol==='TCP'|| request.type==='TCPSampler')&& request.esbDataStruct==null "
+              :is-read-only="isCompReadOnly"
+              :show-script="false" :request="request"/>
 
-          <ms-dubbo-basis-parameters
-            v-if="request.protocol==='DUBBO' || request.protocol==='dubbo://'|| request.type==='DubboSampler'"
-            :request="request"
-            :is-read-only="isCompReadOnly"
-            :showScript="false"/>
+            <ms-sql-basis-parameters
+              v-if="request.protocol==='SQL'|| request.type==='JDBCSampler'"
+              :request="request"
+              :is-read-only="isCompReadOnly"
+              :showScript="false"/>
+
+            <ms-dubbo-basis-parameters
+              v-if="request.protocol==='DUBBO' || request.protocol==='dubbo://'|| request.type==='DubboSampler'"
+              :request="request"
+              :is-read-only="isCompReadOnly"
+              :showScript="false"/>
+
+          </div>
         </legend>
       </template>
       <!-- 执行结果内容 -->
@@ -102,8 +128,10 @@
             />
           </div>
           <div v-else>
-            <el-tabs v-model="request.activeName" closable class="ms-tabs" v-if="request.requestResult && request.requestResult.length > 1">
-              <el-tab-pane v-for="(item,i) in request.requestResult" :label="'循环'+(i+1)" :key="i" style="margin-bottom: 5px">
+            <el-tabs v-model="request.activeName" closable class="ms-tabs"
+                     v-if="request.requestResult && request.requestResult.length > 1">
+              <el-tab-pane v-for="(item,i) in request.requestResult" :label="'循环'+(i+1)" :key="i"
+                           style="margin-bottom: 5px">
                 <api-response-component
                   :currentProtocol="request.protocol"
                   :apiActive="true"
@@ -162,13 +190,23 @@ export default {
       type: Boolean,
       default: true,
     },
+    showVersion: {
+      type: Boolean,
+      default: true,
+    },
     currentEnvironmentId: String,
     projectList: Array,
     expandedNode: Array,
     envMap: Map,
     message: String,
     environmentGroupId: String,
-    environmentType: String
+    environmentType: String,
+
+    scenarioDefinition: Array,
+    ifFromVariableAdvance: {
+      type: Boolean,
+      default: false,
+    },
   },
   components: {
     TemplateComponent,
@@ -208,14 +246,15 @@ export default {
       this.request.projectId = getCurrentProjectID();
     }
     this.request.customizeReq = this.isCustomizeReq;
+
     if (this.request.num) {
       this.isShowNum = true;
+      this.request.root = true;
+      this.getWorkspaceId(this.request.projectId);
+    } else {
+      this.isShowNum = false;
     }
-    // 加载引用对象数据
-    this.getApiInfo();
     if (this.request.protocol === 'HTTP') {
-      this.setUrl(this.request.url);
-      this.setUrl(this.request.path);
       // 历史数据 auth 处理
       if (this.request.hashTree) {
         for (let index in this.request.hashTree) {
@@ -444,6 +483,8 @@ export default {
             this.request.disabled = true;
             this.request.root = true;
             this.request.projectId = response.data.projectId;
+            this.request.versionName = response.data.versionName;
+            this.request.versionEnable = response.data.versionEnable;
             let req = JSON.parse(response.data.request);
             if (req && this.request) {
               this.request.hashTree = hashTree;
@@ -464,6 +505,8 @@ export default {
                 this.getWorkspaceId(response.data.projectId);
               }
               this.request.id = response.data.id;
+              this.request.versionName = response.data.versionName;
+              this.request.versionEnable = response.data.versionEnable;
             }
           })
         } else if (this.request.refType === 'API') {
@@ -474,6 +517,8 @@ export default {
                 this.getWorkspaceId(response.data.projectId);
               }
               this.request.id = response.data.id;
+              this.request.versionName = response.data.versionName;
+              this.request.versionEnable = response.data.versionEnable;
             }
           })
         }
@@ -641,7 +686,13 @@ export default {
         }
         let definitionData = this.$router.resolve({
           name: 'ApiDefinition',
-          params: {redirectID: getUUID(), dataType: "api", dataSelectRange: 'edit:' + resource.id, projectId: resource.projectId, type: resource.protocol}
+          params: {
+            redirectID: getUUID(),
+            dataType: "api",
+            dataSelectRange: 'edit:' + resource.id,
+            projectId: resource.projectId,
+            type: resource.protocol
+          }
         });
         window.open(definitionData.href, '_blank');
       } else if (resource.refType && resource.refType === 'CASE') {
@@ -693,7 +744,10 @@ export default {
           }
         }
       });
-    }
+    },
+    editScenarioAdvance(data) {
+      this.$emit('editScenarioAdvance', data);
+    },
   }
 }
 </script>
@@ -749,6 +803,10 @@ export default {
 
 .ms-req-error {
   color: #F56C6C;
+}
+
+.ms-req-error-report {
+  color: #F6972A;
 }
 
 .ms-test-running {

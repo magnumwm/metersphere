@@ -36,7 +36,7 @@ import java.util.Map;
 @JSONType(typeName = "ThreadGroup")
 public class MsThreadGroup extends MsTestElement {
     private String type = "ThreadGroup";
-    private String clazzName = "io.metersphere.api.dto.definition.request.MsThreadGroup";
+    private String clazzName = MsThreadGroup.class.getCanonicalName();
 
     private boolean enableCookieShare;
     private Boolean onSampleError;
@@ -63,7 +63,9 @@ public class MsThreadGroup extends MsTestElement {
             boolean isConnScenarioPost = false;
             //获取projectConfig
             String projectId = this.checkProjectId(hashTree);
-            this.checkEnvironmentConfig(projectId,config,hashTree);
+            if(StringUtils.isNotEmpty(projectId)){
+                this.checkEnvironmentConfig(projectId,config,hashTree);
+            }
             if (config.getConfig() != null) {
                 if (config.isEffective(projectId)) {
                     EnvironmentConfig environmentConfig = config.getConfig().get(projectId);
@@ -95,9 +97,11 @@ public class MsThreadGroup extends MsTestElement {
                 postProcessor.setClazzName("io.metersphere.api.dto.definition.request.processors.MsJSR223Processor");
                 postProcessor.toHashTree(groupTree, postProcessor.getHashTree(), config);
             }
-            MsDebugSampler el = new MsDebugSampler();
-            el.setName(RunningParamKeys.RUNNING_DEBUG_SAMPLER_NAME);
-            el.toHashTree(groupTree, el.getHashTree(), config);
+            if(!config.isOperating()){
+                MsDebugSampler el = new MsDebugSampler();
+                el.setName(RunningParamKeys.RUNNING_DEBUG_SAMPLER_NAME);
+                el.toHashTree(groupTree, el.getHashTree(), config);
+            }
         }
     }
 
@@ -145,8 +149,16 @@ public class MsThreadGroup extends MsTestElement {
                                 if (StringUtils.isNotEmpty(projectId)) {
                                     break;
                                 }
+                            }else {
+                                projectId = itemEl.getProjectId();
+                                if (StringUtils.isNotEmpty(projectId)) {
+                                    break;
+                                }
                             }
                         }
+                    }
+                    if(StringUtils.isEmpty(projectId)){
+                        projectId = el.getProjectId();
                     }
                 }
             }

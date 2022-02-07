@@ -25,7 +25,7 @@ import java.util.List;
 @JSONType(typeName = "JSR223PostProcessor")
 public class MsJSR223PostProcessor extends MsTestElement {
     private String type = "JSR223PostProcessor";
-    private String clazzName = "io.metersphere.api.dto.definition.request.processors.post.MsJSR223PostProcessor";
+    private String clazzName = MsJSR223PostProcessor.class.getCanonicalName();
 
     @JSONField(ordinal = 20)
     private String script;
@@ -57,6 +57,11 @@ public class MsJSR223PostProcessor extends MsTestElement {
         //替换Metersphere环境变量
         script = StringUtils.replace(script, RunningParamKeys.API_ENVIRONMENT_ID, "\"" + RunningParamKeys.RUNNING_PARAMS_PREFIX + this.getEnvironmentId() + ".\"");
 
+        if(config.isOperating()){
+            if (script.startsWith("io.metersphere.utils.JMeterVars.addVars")) {
+                return;
+            }
+        }
         // 非导出操作，且不是启用状态则跳过执行
         if (!config.isOperating() && !this.isEnable()) {
             return;

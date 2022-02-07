@@ -8,7 +8,7 @@
             <el-input v-if="!apiCase.id || isShowInput" size="small" v-model="apiCase.name" :name="index" :key="index"
                       class="ms-api-header-select" style="width: 180px"
                       :readonly="!hasPermission('PROJECT_API_DEFINITION:READ+EDIT_CASE')"
-                      @blur="saveTestCase(apiCase , true)" :placeholder="$t('commons.input_name')" ref="nameEdit"/>
+                       :placeholder="$t('commons.input_name')" ref="nameEdit"/>
             <span v-else>
               <el-tooltip :content="apiCase.id ? apiCase.name : ''" placement="top">
                 <span>{{ apiCase.id ? apiCase.name : '' | ellipsis }}</span>
@@ -126,17 +126,12 @@
         </div>
 
         <ms-jmx-step v-if="apiCase.request.hashTree && apiCase.request.hashTree.length > 0" :request="apiCase.request" :api-id="api.id" :response="apiCase.responseData"/>
-        <!-- 保存操作 -->
-        <el-button type="primary" size="small" style="margin: 20px; float: right" @click="saveTestCase(apiCase)"
-                   v-if="type!=='detail'"
-                   v-prevent-re-click
-                   v-permission="['PROJECT_API_DEFINITION:READ+EDIT_CASE']">
-          {{ $t('commons.save') }}
-        </el-button>
+
       </div>
     </el-collapse-transition>
     <ms-change-history ref="changeHistory"/>
   </el-card>
+
 
 </template>
 
@@ -165,6 +160,7 @@ import {API_METHOD_COLOUR} from "../../model/JsonData";
 import MsChangeHistory from "../../../../history/ChangeHistory";
 import {TYPE_TO_C} from "@/business/components/api/automation/scenario/Setting";
 import {hasPermission} from '@/common/js/utils';
+import ApiCaseHeader from "./ApiCaseHeader";
 
 export default {
   name: "ApiCaseItem",
@@ -196,7 +192,8 @@ export default {
     ShowMoreBtn,
     MsChangeHistory,
     "esbDefinition": esbDefinition.default,
-    "esbDefinitionResponse": esbDefinitionResponse.default
+    "esbDefinitionResponse": esbDefinitionResponse.default ,
+    ApiCaseHeader
   },
   data() {
     return {
@@ -206,6 +203,7 @@ export default {
       resultMap: new Map([
         ['success', this.$t('test_track.plan_view.execute_result') + '：' + this.$t('test_track.plan_view.pass')],
         ['error', this.$t('test_track.plan_view.execute_result') + '：' + this.$t('api_test.home_page.detail_card.execution_failed')],
+        ['errorReportResult', this.$t('test_track.plan_view.execute_result') + '：' + this.$t('error_report_library.option.name')],
         ['default', this.$t('test_track.plan_view.execute_result') + '：' + this.$t('api_test.home_page.detail_card.unexecute')]
       ]),
       isXpack: false,
@@ -424,6 +422,7 @@ export default {
         tmp.id = tmp.request.id;
         row.request.id = tmp.request.id;
         tmp.request.path = this.api.path;
+        tmp.versionId = this.api.versionId;
         if (tmp.request.protocol != "dubbo://" && tmp.request.protocol != "DUBBO") {
           tmp.request.method = this.api.method;
         }

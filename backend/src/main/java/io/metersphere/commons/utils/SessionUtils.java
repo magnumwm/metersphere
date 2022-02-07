@@ -30,6 +30,7 @@ public class SessionUtils {
             assert user != null;
             return user;
         } catch (Exception e) {
+            LogUtil.error(e.getMessage(), e);
             return null;
         }
     }
@@ -75,6 +76,7 @@ public class SessionUtils {
                 return request.getHeader("WORKSPACE");
             }
         } catch (Exception e) {
+            LogUtil.error(e.getMessage(), e);
         }
         return getUser().getLastWorkspaceId();
     }
@@ -87,6 +89,7 @@ public class SessionUtils {
                 return request.getHeader("PROJECT");
             }
         } catch (Exception e) {
+            LogUtil.error(e.getMessage(), e);
         }
         return getUser().getLastProjectId();
     }

@@ -161,6 +161,11 @@ export default {
     weeks_4: 'Thur',
     weeks_5: 'Fri',
     weeks_6: 'Sat',
+    date_unit: {
+      day: "Day",
+      month: "Month",
+      year: "Year"
+    },
     test_unit: 'tests',
     remove: 'Remove',
     next_level: "Next level",
@@ -392,9 +397,11 @@ export default {
         end_time_cannot_over_than_start_time: "End time cannot before than start time",
       },
     },
+    no_operation_permission: "No operation permission!",
     enterprise_edition: "ENTERPRISE",
     open_source_version: "OPEN-SOURCE",
     function_planning: "The function is being planned...",
+    enterprise_edition_tips: "This is an enterprise edition feature, <a href='https://metersphere.io/enterprise.html' target='_blank'>please consult for details</a>",
     system_data: "System Data",
     system_user: "User",
     system_workspace: "Workspace",
@@ -414,7 +421,10 @@ export default {
     version: 'Version',
     is_new: "Is new",
     form_config: "Form config",
-    form_content: "Form content"
+    form_content: "Form content",
+    sync_other_info: "Copy other config",
+    delete_current_version: 'Current version',
+    delete_all_version: 'All versions',
   },
   login: {
     normal_Login: "Normal Login",
@@ -492,6 +502,7 @@ export default {
     issue_status: 'Status',
     issue_severity: 'Severity',
     create: 'Create Field',
+    update: 'Update Field',
     name: 'Custom Field',
     system_field: 'System Field',
     scene: 'Use Scene',
@@ -754,6 +765,32 @@ export default {
     test_case_custom_id_info: 'The Case ID defaults to the system self incrementing ID',
     scenario_custom_id: 'Scenario Custom ID',
     scenario_custom_id_info: 'The scenario use case ID defaults to the system self-incremented ID',
+    version: {
+      name: 'Version',
+      read: 'Search',
+      create_version: 'Create version',
+      edit_version: 'Edit version',
+      version_closed: 'Closed',
+      version_open: 'Open',
+      publish_time: 'Publish time',
+      start_time: 'Start time',
+      end_time: 'End time',
+      delete_version: 'Delete version',
+      please_input_version: 'Please input version',
+      tips: 'Note: The closed version will not appear in the system field <strong>Version</strong> drop-down box option',
+      enable: 'Enable version management',
+      latest: 'Latest',
+      set_latest: 'Latest',
+      delete_tip: 'This version has associated system resources, this operation will delete the associated resources',
+      checkout: 'Checkout',
+      compare: 'Compare',
+      change_latest_tip: 'This operation will modify the default display of the interface, scene, test case and other list pages, which may take some time. Please wait! '
+    },
+    timing_clean_plan_report: "Regularly clean up test report",
+    timing_clean_api_report: "Regularly clean up api report",
+    timing_clean_load_report: "Regularly clean up performance report",
+    keep_recent: "Keep recent",
+    please_select_cleaning_time: "please select cleaning time！"
   },
   member: {
     create: 'Create',
@@ -822,6 +859,7 @@ export default {
     admin_not_allow_edit: 'admin not allow edit!',
     admin_not_allow_delete: 'admin not allow delete!',
     select_type: 'please select type',
+    view_permission: 'view permission',
     system: 'System',
     organization: 'Organization',
     workspace: 'Workspace',
@@ -1184,6 +1222,7 @@ export default {
         all_post_script: "Postscript",
         pre_sql: "JDBC Preprocessor",
         pre_return: "pre return",
+        extract_params: "extract params（variable / expression）",
         post_sql: "JDBC Postprocessor",
         extract_param: "Extract parameters",
         add_module: "Add module",
@@ -1246,6 +1285,7 @@ export default {
     automation: {
       open_expansion: "One-click expansion",
       close_expansion: "One-click storage",
+      all: "all",
       constant: "constant",
       counter: "counter",
       random: "random",
@@ -1417,6 +1457,7 @@ export default {
       parameters_advance_add_func: "Add Function",
       parameters_advance_add_func_limit: "Support up to 5 functions",
       parameters_advance_add_func_error: "Please select function first",
+      parameters_advance_add_mock_error: "Please select mock data first",
       parameters_advance_add_param_error: "Please enter function parameters",
       parameters_desc: "Parameters will be appended to the URL e.g. https://fit2cloud.com?Name=Value&Name2=Value2",
       headers: "Headers",
@@ -1642,6 +1683,10 @@ export default {
       cover_tip_1: "1. Add if the interface path does not exist",
       cover_tip_2: "2. The interface path is consistent with the original interface, if the content is inconsistent, the original interface will be overwritten",
       cover_tip_3: "3. If the interface path and content are consistent with the original interface, no change will be made",
+      import_version: 'Import version',
+      data_update_version: 'Api update version',
+      data_new_version: 'Api creation version',
+      latest_version: 'Latest version',
     },
     home_page: {
       unit_of_measurement: "",
@@ -1687,6 +1732,7 @@ export default {
           success: "Success",
           interface_coverage: "Interface coverage",
         },
+        single_case: "Single Case",
       },
       api_details_card: {
         title: "API",
@@ -1886,6 +1932,10 @@ export default {
       minder_issue_delete_tip: "Successfully cancel the defect association",
       check_select: "Please check the case",
       export_all_cases: 'Are you sure you want to export all use cases?',
+      minder_tem_node_tip: "Cannot create case {0} under the temporary node",
+      minder_is_module_tip: "{0} is a module and cannot be modified as a use ca",
+      minder_not_module_tip: "Module {0}, cannot be created under a non-module node",
+      minder_all_module_tip: 'All case are virtual modules. Please create use cases in other modules',
       input_test_case: 'Please enter the associated case name',
       test_name: 'TestName',
       other: '--Other--',
@@ -1950,8 +2000,8 @@ export default {
       unlink: 'Unlink',
       project_name: "Project",
       status: 'Review Status',
-      status_prepare: 'Not started',
-      status_running: 'In progress',
+      status_prepare: 'Prepare',
+      status_running: 'Underway',
       status_finished: 'Completed',
       status_pass: 'Pass',
       status_un_pass: 'UnPass',
@@ -1990,10 +2040,11 @@ export default {
         import_update: "Import Update",
         import_tip1: "The ID is required when the \"Test Case Custom ID\" switch is turned on in the project settings",
         import_tip2: "ID is required when importing and updating",
+        import_file_tips: "Please upload the file first!",
       },
       export: {
         export: "Export cases",
-        export_tip: "Switch to Interface List and check Use Case Export"
+        export_tip: "Switch to Case List and check Use Case Export"
       },
       case_desc: "Case Desc",
       passing_rate: 'Case Pass Rate'
@@ -2045,6 +2096,8 @@ export default {
       test_plan_api_case_count: "Api case count",
       test_plan_api_scenario_count: "Scenario case count",
       test_plan_load_case_count: "Load case count",
+      test_plan_component_case_count: "Component Case Count",
+      data_name: "Data Name",
       load_case: {
         case: "Load Case",
         execution_status: "Execution status",
@@ -2055,6 +2108,7 @@ export default {
         exec: "Executing....",
         error: "Use case execution error, please debug this use case separately!",
         report_not_found: "Report does not exist",
+        content_empty: "Content empty",
       }
     },
     review: {
@@ -2200,7 +2254,9 @@ export default {
       automatically_update_status: "Auto update status",
       allow_associated_repetitive_cases: "Repetitive Case",
       automatically_update_status_tip: "When the interface or performance use case associated with the functional use case is executed in the test plan, the status of the functional use case is automatically updated",
-      allow_associated_repetitive_cases_tip: "Whether to allow the same use case to be associated multiple times in the same test plan"
+      allow_associated_repetitive_cases_tip: "Whether to allow the same use case to be associated multiple times in the same test plan",
+      performance_case_count: "Performance Case Count",
+      running: "Running",
     },
     issue: {
       issue: "Issue",
@@ -2252,6 +2308,8 @@ export default {
         creator: "Creator",
         create_time: "Create Time",
         trigger_mode: "Trigger Mode",
+        run_time: "run time(s)",
+        pass_rate: "pass rate",
         status: "Status",
         operation: "Operation",
       },
@@ -2281,7 +2339,8 @@ export default {
       all_case: "All Case",
     },
     reporter: 'Reporter',
-    lastmodify: 'Last Modify'
+    lastmodify: 'Last Modify',
+    sync_to_new_version: "Copy to latest version",
   },
   test_resource_pool: {
     id: 'Resource Pool ID',
@@ -2541,7 +2600,7 @@ export default {
     before_change: "Before change",
     after_change: "After change",
     share: "Share",
-    change_history: "Change history",
+    change_history: "Change log",
     change_content: "Change content"
   },
   plugin: {
@@ -2906,10 +2965,12 @@ export default {
     use_desc: "In case of conflict between error code and error assertions, it is treated as error code",
     option: {
       name: "Err code",
-      error_code: "Err code",
+      error_code: "Name",
       match_type: "Match",
       status: "Status",
       is_open: "Is open",
+      create: "Create",
+      match_rule: "Rule",
     },
     match_type: {
       text: "TXT"

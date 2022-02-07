@@ -21,6 +21,8 @@
       :current-protocol="currentProtocol"
       :select-node-ids="selectNodeIds"
       :project-id="projectId"
+      :not-in-ids="notInIds"
+      :versionEnable="versionEnable"
       ref="apiCaseList"/>
 
   </test-case-relevance-base>
@@ -52,6 +54,14 @@ export default {
   props: {
     caseId: {
       type: String
+    },
+    versionEnable: {
+      type: Boolean,
+      default: false
+    },
+    notInIds: {
+      type: Array,
+      default: null
     }
   },
   methods: {

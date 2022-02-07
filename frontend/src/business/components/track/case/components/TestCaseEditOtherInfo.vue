@@ -6,7 +6,7 @@
       </el-row>
     </el-tab-pane>
     <el-tab-pane :label="$t('test_track.case.relate_test')" name="relateTest">
-      <test-case-test-relate :read-only="readOnly" :case-id="caseId"/>
+      <test-case-test-relate :read-only="readOnly" :case-id="caseId" :version-enable="versionEnable" ref="relateTest"/>
     </el-tab-pane>
 
     <el-tab-pane :label="$t('test_track.related_requirements')" name="demand">
@@ -37,7 +37,7 @@
       <template v-slot:label>
         <tab-pane-count :title="$t('commons.relationship.name')" :count="relationshipCount"/>
       </template>
-      <dependencies-list @setCount="setRelationshipCount" :read-only="readOnly" :resource-id="caseId" resource-type="TEST_CASE" ref="relationship"/>
+      <dependencies-list @setCount="setRelationshipCount" :read-only="readOnly" :resource-id="caseId" :version-enable="versionEnable" resource-type="TEST_CASE" ref="relationship"/>
     </el-tab-pane>
 
     <el-tab-pane :label="$t('test_track.case.attachment')" name="attachment">
@@ -90,7 +90,7 @@ export default {
     DependenciesList,
     TestCaseTestRelate,
     FormRichTextItem, TestCaseIssueRelate, TestCaseAttachment, MsRichText, TestCaseRichText},
-  props: ['form', 'labelWidth', 'caseId', 'readOnly', 'projectId', 'isTestPlan', 'planId'],
+  props: ['form', 'labelWidth', 'caseId', 'readOnly', 'projectId', 'isTestPlan', 'planId', 'versionEnable'],
   data() {
     return {
       result: {},
@@ -126,6 +126,10 @@ export default {
         this.$refs.relationship.open();
       } else if (this.tabActiveName === 'attachment') {
         this.getFileMetaData();
+      } else if (this.tabActiveName === 'relateTest') {
+        this.$nextTick(() => {
+          this.getRelatedTest();
+        });
       }
     },
     caseId() {
@@ -255,6 +259,9 @@ export default {
           });
         });
       }
+    },
+    getRelatedTest() {
+      this.$refs.relateTest.initTable();
     },
     visibleChange(flag) {
       if (flag) {

@@ -98,6 +98,10 @@ public class ApiTestCaseService {
     private ApiTestEnvironmentMapper apiTestEnvironmentMapper;
     @Resource
     private ApiTestCaseFollowMapper apiTestCaseFollowMapper;
+    @Resource
+    private ExtProjectVersionMapper extProjectVersionMapper;
+    @Resource
+    private TcpApiParamService tcpApiParamService;
 
     private static final String BODY_FILE_DIR = FileUtils.BODY_FILE_DIR;
 
@@ -216,7 +220,7 @@ public class ApiTestCaseService {
         }
     }
 
-    public ApiTestCaseWithBLOBs get(String id) {
+    public ApiTestCaseInfo get(String id) {
 //        ApiTestCaseWithBLOBs returnBlobs = apiTestCaseMapper.selectByPrimaryKey(id);
         ApiTestCaseInfo model = extApiTestCaseMapper.selectApiCaseInfoByPrimaryKey(id);
         if (model != null) {
@@ -232,6 +236,9 @@ public class ApiTestCaseService {
     }
 
     public ApiTestCase create(SaveApiTestCaseRequest request, List<MultipartFile> bodyFiles) {
+        if (StringUtils.isBlank(request.getVersionId())) {
+            request.setVersionId(extProjectVersionMapper.getDefaultVersion(request.getProjectId()));
+        }
         ApiTestCase test = createTest(request, bodyFiles);
         return test;
     }
@@ -321,6 +328,9 @@ public class ApiTestCaseService {
         if (StringUtils.isNotBlank(request.getId())) {
             criteria.andIdNotEqualTo(request.getId());
         }
+        if (StringUtils.isNotBlank(request.getVersionId())) {
+            criteria.andVersionIdEqualTo(request.getVersionId());
+        }
         List<ApiTestCase> apiTestCases = apiTestCaseMapper.selectByExample(example);
         if (CollectionUtils.isNotEmpty(apiTestCases)) {
             return apiTestCases.get(0);
@@ -345,7 +355,7 @@ public class ApiTestCaseService {
 
     private ApiTestCase updateTest(SaveApiTestCaseRequest request) {
         checkNameExist(request);
-
+        request.setRequest(tcpApiParamService.parseMsTestElement(request.getRequest()));
         if (StringUtils.isNotEmpty(request.getEsbDataStruct())) {
             request = esbApiParamService.handleEsbRequest(request);
         }
@@ -365,6 +375,7 @@ public class ApiTestCaseService {
             test.setUpdateTime(System.currentTimeMillis());
             test.setDescription(request.getDescription());
             test.setVersion(request.getVersion() == null ? 0 : request.getVersion() + 1);
+            test.setVersionId(request.getVersionId());
             if (StringUtils.equals("[]", request.getTags())) {
                 test.setTags("");
             } else {
@@ -394,7 +405,7 @@ public class ApiTestCaseService {
     private ApiTestCase createTest(SaveApiTestCaseRequest request, List<MultipartFile> bodyFiles) {
         checkNameExist(request);
         FileUtils.createBodyFiles(request.getId(), bodyFiles);
-
+        request.setRequest(tcpApiParamService.parseMsTestElement(request.getRequest()));
         if (StringUtils.isNotEmpty(request.getEsbDataStruct()) || StringUtils.isNotEmpty(request.getBackEsbDataStruct())) {
             request = esbApiParamService.handleEsbRequest(request);
         }
@@ -419,6 +430,7 @@ public class ApiTestCaseService {
         test.setDescription(request.getDescription());
         test.setNum(getNextNum(request.getApiDefinitionId()));
         test.setOrder(ServiceUtils.getNextOrder(request.getProjectId(), extApiTestCaseMapper::getLastOrder));
+        test.setVersionId(request.getVersionId());
         if (StringUtils.equals("[]", request.getTags())) {
             test.setTags("");
         } else {
@@ -636,7 +648,7 @@ public class ApiTestCaseService {
 
     public List<ApiTestCaseWithBLOBs> selectCasesBydApiIds(List<String> apiIds) {
         ApiTestCaseExample example = new ApiTestCaseExample();
-        example.createCriteria().andApiDefinitionIdIn(apiIds);
+        example.createCriteria().andApiDefinitionIdIn(apiIds).andStatusNotEqualTo("Trash");
         return apiTestCaseMapper.selectByExampleWithBLOBs(example);
     }
 

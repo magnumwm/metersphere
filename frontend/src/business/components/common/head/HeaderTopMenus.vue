@@ -8,7 +8,10 @@
            @select="handleSelect"
            :key="menuKey"
            router>
-    <el-menu-item index="/workstation" v-xpack onselectstart="return false">
+    <el-menu-item index="/workstation" v-if="hasLicense()">
+      {{ $t('commons.my_workstation') }}
+    </el-menu-item>
+    <el-menu-item v-else @click="clickPlanMenu">
       {{ $t('commons.my_workstation') }}
     </el-menu-item>
     <el-menu-item index="/track" v-if="check('testTrack')" onselectstart="return false"
@@ -30,7 +33,7 @@
     </el-menu-item>
 
     <el-menu-item index="/project" onselectstart="return false"
-                  v-permission="['PROJECT_USER:READ', 'PROJECT_ENVIRONMENT:READ', 'PROJECT_OPERATING_LOG:READ', 'PROJECT_FILE:READ+JAR', 'PROJECT_FILE:READ+FILE', 'PROJECT_CUSTOM_CODE:READ']">
+                  v-permission="['PROJECT_USER:READ', 'PROJECT_ENVIRONMENT:READ', 'PROJECT_OPERATING_LOG:READ', 'PROJECT_FILE:READ+JAR', 'PROJECT_FILE:READ+FILE', 'PROJECT_CUSTOM_CODE:READ','PROJECT_ERROR_REPORT_LIBRARY:READ']">
       {{ $t('commons.project_setting') }}
     </el-menu-item>
 
@@ -100,8 +103,11 @@ export default {
     this.registerEvents();
   },
   methods: {
+    hasLicense,
     handleSelect(index) {
-      this.activeIndex = index;
+      if (index) {
+        this.activeIndex = index;
+      }
     },
     active() {
       if (this.activeIndex === '/api') {
@@ -122,7 +128,15 @@ export default {
           });
         }
       });
-    }
+    },
+    clickPlanMenu() {
+      this.$message({
+        dangerouslyUseHTMLString: true,
+        showClose: true,
+        message: this.$t('commons.enterprise_edition_tips'),
+      });
+      return false;
+    },
   }
 };
 </script>

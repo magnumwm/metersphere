@@ -27,6 +27,8 @@ public class ApiDefinitionExecResult implements Serializable {
 
     private String triggerMode;
 
+    private String versionId;
+
     private String errorCode;
 
     private String content;
