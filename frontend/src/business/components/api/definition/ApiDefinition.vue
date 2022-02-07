@@ -44,8 +44,7 @@
               right-content="CASE"
             >
               <template v-slot:version>
-                <version-select v-xpack :project-id="projectId" :version-id="trashVersion"
-                                @changeVersion="changeVersion"/>
+                <version-select v-xpack :project-id="projectId" :version-id="trashVersion"  @changeVersion="changeVersion" />
               </template>
               <!-- 列表集合 -->
               <ms-api-list
@@ -108,7 +107,7 @@
               :right-button-enable="currentProtocol === 'HTTP' "
             >
               <template v-slot:version>
-                <version-select v-xpack :project-id="projectId" @changeVersion="changeVersion"/>
+                <version-select v-xpack :project-id="projectId" @changeVersion="changeVersion" />
               </template>
               <!-- 列表集合 -->
               <ms-api-list
@@ -360,7 +359,7 @@ export default {
       useEnvironment: String,
       activeTab: "api",
       currentVersion: null,
-      trashVersion: null
+      trashVersion:null,
     };
   },
   activated() {

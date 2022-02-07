@@ -13,7 +13,8 @@ import io.metersphere.controller.request.member.EditPassWordRequest;
 import io.metersphere.controller.request.member.QueryMemberRequest;
 import io.metersphere.controller.request.member.UserRequest;
 import io.metersphere.controller.request.resourcepool.UserBatchProcessRequest;
-import io.metersphere.dto.*;
+import io.metersphere.dto.UserDTO;
+import io.metersphere.dto.UserGroupPermissionDTO;
 import io.metersphere.excel.domain.ExcelResponse;
 import io.metersphere.i18n.Translator;
 import io.metersphere.log.annotation.MsAuditLog;
@@ -21,6 +22,7 @@ import io.metersphere.service.UserService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -55,7 +57,7 @@ public class UserController {
     @MsAuditLog(module = "system_user", type = OperLogConstants.DELETE, beforeEvent = "#msClass.getLogDetails(#userId)", msClass = UserService.class)
     public void deleteUser(@PathVariable(value = "userId") String userId) {
         userService.deleteUser(userId);
-        // 踢掉在线用户
+        // 剔除在线用户
         SessionUtils.kickOutUser(userId);
     }
 
@@ -255,7 +257,7 @@ public class UserController {
      * 根据userId 获取 user 所属工作空间和所属工作项目
      */
     @GetMapping("/get/ws_pj/{userId}")
-    public Map<Object,Object> getWSAndProjectByUserId(@PathVariable String userId) {
+    public Map<Object, Object> getWSAndProjectByUserId(@PathVariable String userId) {
         return userService.getWSAndProjectByUserId(userId);
     }
 }

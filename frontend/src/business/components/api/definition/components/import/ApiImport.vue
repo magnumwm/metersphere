@@ -158,16 +158,16 @@ export default {
   props: {
     saved: {
       type: Boolean,
-      default: true,
+        default: true,
+      },
+      moduleOptions: Array,
+      propotal: String,
+      model: {
+        type: String,
+        default: 'definition'
+      }
     },
-    moduleOptions: Array,
-    propotal: String,
-    model: {
-      type: String,
-      default: 'definition'
-    }
-  },
-  data() {
+    data() {
       return {
         visible: false,
         swaggerUrlEnable: false,
