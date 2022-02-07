@@ -15,7 +15,7 @@ public class ShiroUtils {
 
     public static void loadBaseFilterChain(Map<String, String> filterChainDefinitionMap) {
 
-        filterChainDefinitionMap.put("/resource/md/get", "anon");
+        filterChainDefinitionMap.put("/resource/md/get/**", "anon");
         filterChainDefinitionMap.put("/*.worker.js", "anon");
         filterChainDefinitionMap.put("/login", "anon");
         filterChainDefinitionMap.put("/signin", "anon");
@@ -35,7 +35,7 @@ public class ShiroUtils {
         filterChainDefinitionMap.put("/jmeter/ready/**", "anon");
         filterChainDefinitionMap.put("/authsource/list/allenable", "anon");
         filterChainDefinitionMap.put("/sso/signin", "anon");
-        filterChainDefinitionMap.put("/sso/callback", "anon");
+        filterChainDefinitionMap.put("/sso/callback/**", "anon");
         filterChainDefinitionMap.put("/license/valid", "anon");
         filterChainDefinitionMap.put("/api/jmeter/download", "anon");
         filterChainDefinitionMap.put("/api/jmeter/download/files", "anon");

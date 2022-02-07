@@ -58,6 +58,19 @@
           min-width="120px"/>
 
         <ms-table-column
+          v-if="versionEnable"
+          prop="versionId"
+          :field="item"
+          :filters="versionFilters"
+          :fields-width="fieldsWidth"
+          :label="$t('commons.version')"
+          min-width="120px">
+           <template v-slot:default="scope">
+            <span>{{ scope.row.versionName }}</span>
+          </template>
+        </ms-table-column>
+
+        <ms-table-column
           prop="priority"
           :field="item"
           :fields-width="fieldsWidth"
@@ -235,8 +248,14 @@
     <functional-test-case-edit
       ref="testPlanTestCaseEdit"
       :search-param.sync="condition"
+      :page-num="currentPage"
+      :page-size="pageSize"
+      @nextPage="nextPage"
+      @prePage="prePage"
       @refresh="initTableData"
+      :test-cases="tableData"
       :is-read-only="isReadOnly"
+      :total="total"
       @refreshTable="search"/>
 
     <batch-edit ref="batchEdit" @batchEdit="batchEdit"
@@ -258,7 +277,7 @@ import {
   TEST_PLAN_FUNCTION_TEST_CASE,
   TokenKey,
 } from "@/common/js/constants";
-import {getCurrentProjectID, hasPermission} from "@/common/js/utils";
+import {getCurrentProjectID, hasPermission, hasLicense} from "@/common/js/utils";
 import PriorityTableItem from "../../../../common/tableItems/planview/PriorityTableItem";
 import StatusTableItem from "../../../../common/tableItems/planview/StatusTableItem";
 import TypeTableItem from "../../../../common/tableItems/planview/TypeTableItem";
@@ -385,7 +404,7 @@ export default {
       },
       selectDataRange: "all",
       testCaseTemplate: {},
-
+      versionFilters: []
     };
   },
   props: {
@@ -395,6 +414,10 @@ export default {
     clickType: String,
     selectNodeIds: {
       type: Array
+    },
+    versionEnable: {
+      type: Boolean,
+      default: false
     },
   },
   computed: {
@@ -421,7 +444,7 @@ export default {
     },
     condition() {
       this.$emit('setCondition', this.condition);
-    },
+    }
   },
   created() {
     this.condition.orders = getLastTableSortField(this.tableHeaderKey);
@@ -431,17 +454,30 @@ export default {
     hub.$on("openFailureTestCase", row => {
       this.isReadOnly = true;
       this.condition.status = 'Failure';
-      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(row);
+      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(row, this.tableData);
     });
     this.refreshTableAndPlan();
     this.hasEditPermission = hasPermission('PROJECT_TRACK_PLAN:READ+EDIT');
     this.getMaintainerOptions();
     this.getTemplateField();
+    this.getVersionOptions();
   },
   beforeDestroy() {
     hub.$off("openFailureTestCase");
   },
   methods: {
+    nextPage() {
+      this.currentPage++;
+      this.initTableData(() => {
+        this.$refs.testPlanTestCaseEdit.openTestCaseEdit(this.tableData[0], this.tableData);
+      });
+    },
+    prePage() {
+      this.currentPage--;
+      this.initTableData(() => {
+        this.$refs.testPlanTestCaseEdit.openTestCaseEdit(this.tableData[this.tableData.length - 1], this.tableData);
+      });
+    },
     getTemplateField() {
       this.result.loading = true;
       let p1 = getProjectMember((data) => {
@@ -460,7 +496,7 @@ export default {
     getCustomFieldValue(row, field) {
       return getCustomFieldValue(row, field, this.members);
     },
-    initTableData() {
+    initTableData(callback) {
       initCondition(this.condition, this.condition.selectAll);
       this.enableOrderDrag = this.condition.orders.length > 0 ? false : true;
 
@@ -497,6 +533,9 @@ export default {
               this.$set(this.tableData[i], "issuesContent", JSON.parse(this.tableData[i].issues));
             }
           }
+          if (callback) {
+            callback();
+          }
         });
       }
     },
@@ -509,7 +548,7 @@ export default {
     },
     showDetail(row, event, column) {
       this.isReadOnly = !this.hasEditPermission;
-      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(row);
+      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(row, this.tableData);
     },
     refresh() {
       this.condition = {components: TEST_PLAN_TEST_CASE_CONFIGS};
@@ -538,7 +577,7 @@ export default {
     },
     handleEdit(testCase, index) {
       this.isReadOnly = false;
-      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(testCase);
+      this.$refs.testPlanTestCaseEdit.openTestCaseEdit(testCase, this.tableData);
     },
     handleDelete(testCase) {
       this.$alert(this.$t('test_track.plan_view.confirm_cancel_relevance') + ' ' + testCase.name + " ？", '', {
@@ -618,7 +657,7 @@ export default {
     },
     handleBatchEdit() {
       this.getMaintainerOptions();
-      this.$refs.batchEdit.open();
+      this.$refs.batchEdit.open(this.condition.selectAll ? this.total : this.$refs.table.selectRows.size);
     },
     getMaintainerOptions() {
       this.$post('/user/project/member/tester/list', {projectId: getCurrentProjectID()}, response => {
@@ -630,6 +669,16 @@ export default {
           return {text: u.id + '(' + u.name + ')', value: u.id};
         });
       });
+    },
+    getVersionOptions() {
+      if (hasLicense()) {
+        this.$get('/project/version/get-project-versions/' + getCurrentProjectID(), response => {
+          this.versionOptions= response.data;
+          this.versionFilters = response.data.map(u => {
+            return {text: u.name, value: u.id};
+          });
+        });
+      }
     },
   }
 };
@@ -649,14 +698,6 @@ export default {
 .el-tag {
   margin-left: 10px;
 }
-
-/*.ms-table-header >>> .table-title {*/
-/*  height: 0px;*/
-/*}*/
-
-/*/deep/ .el-table__fixed-body-wrapper {*/
-/*  top: 59px !important;*/
-/*}*/
 
 .ms-table-header {
   margin-bottom: 10px;

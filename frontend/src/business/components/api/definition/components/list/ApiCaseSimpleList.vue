@@ -1,9 +1,9 @@
 <template>
-  <div>
-    <div>
-      <el-link type="primary" style="float:right;margin-top: 5px" @click="open">{{ $t('commons.adv_search.title') }}
-      </el-link>
-
+  <span>
+    <span>
+      <div class="ms-opt-btn" v-if="apiDefinitionId && versionEnable">
+          {{ $t('project.version.name') }}:  {{ apiDefinition.versionName }}
+      </div>
       <el-input :placeholder="$t('commons.search_by_id_name_tag')" @blur="search" @keyup.enter.native="search"
                 class="search-input" size="small"
                 v-model="condition.name"/>
@@ -132,11 +132,24 @@
 
           <ms-table-column v-if="item.id=='tags'" prop="tags" width="120px" :label="$t('commons.tag')">
             <template v-slot:default="scope">
-              <ms-tag v-for="(itemName,index)  in scope.row.tags" :key="index" type="success" effect="plain" :show-tooltip="scope.row.tags.length===1&&itemName.length*12<=120"
+              <ms-tag v-for="(itemName,index)  in scope.row.tags" :key="index" type="success" effect="plain"
+                      :show-tooltip="scope.row.tags.length===1&&itemName.length*12<=120"
                       :content="itemName" style="margin-left: 0px; margin-right: 2px"/>
               <span/>
             </template>
           </ms-table-column>
+
+           <ms-table-column
+             :label="$t('project.version.name')"
+             :field="item"
+             :fields-width="fieldsWidth"
+             :filters="versionFilters"
+             min-width="100px"
+             prop="versionId">
+          <template v-slot:default="scope">
+            <span>{{ scope.row.versionName }}</span>
+          </template>
+        </ms-table-column>
 
           <ms-table-column
             prop="environment"
@@ -192,7 +205,7 @@
         :current-page.sync="currentPage"
         :page-size.sync="pageSize"
         :total="total"/>
-    </div>
+    </span>
 
     <api-case-list @showExecResult="showExecResult" @refreshCase="setRunning" :currentApi="selectCase" ref="caseList"
                    @stop="stop" @reLoadCase="initTable"/>
@@ -214,7 +227,7 @@
                :visible.sync="resVisible" class="api-import" destroy-on-close @close="resVisible=false">
       <ms-request-result-tail :response="response" ref="debugResult"/>
     </el-dialog>
-  </div>
+  </span>
 
 </template>
 
@@ -236,7 +249,7 @@ import MsApiCaseRunModeWithEnv from "./ApiCaseRunModeWithEnv";
 
 import {API_METHOD_COLOUR, CASE_PRIORITY, DUBBO_METHOD, REQ_METHOD, SQL_METHOD, TCP_METHOD} from "../../model/JsonData";
 
-import {getBodyUploadFiles, getCurrentProjectID, getUUID, strMapToObj} from "@/common/js/utils";
+import {getBodyUploadFiles, getCurrentProjectID, getUUID, hasLicense} from "@/common/js/utils";
 import PriorityTableItem from "../../../../track/common/tableItems/planview/PriorityTableItem";
 import MsApiCaseTableExtendBtns from "../reference/ApiCaseTableExtendBtns";
 import MsReferenceView from "../reference/ReferenceView";
@@ -249,7 +262,7 @@ import MsTableAdvSearchBar from "@/business/components/common/components/search/
 import {API_CASE_CONFIGS} from "@/business/components/common/components/search/search-components";
 import {
   _filter,
-  _sort, buildBatchParam,
+  _sort,
   getCustomTableHeader,
   getCustomTableWidth,
   getLastTableSortField,
@@ -308,13 +321,33 @@ export default {
       buttons: [],
       enableOrderDrag: true,
       simpleButtons: [
-        {name: this.$t('api_test.definition.request.batch_delete'), handleClick: this.handleDeleteToGcBatch, permissions: ['PROJECT_API_DEFINITION:READ+DELETE_CASE']},
-        {name: this.$t('api_test.definition.request.batch_edit'), handleClick: this.handleEditBatch, permissions: ['PROJECT_API_DEFINITION:READ+EDIT_CASE']},
-        {name: this.$t('api_test.automation.batch_execute'), handleClick: this.handleRunBatch, permissions: ['PROJECT_API_DEFINITION:READ+RUN']},
+        {
+          name: this.$t('api_test.definition.request.batch_delete'),
+          handleClick: this.handleDeleteToGcBatch,
+          permissions: ['PROJECT_API_DEFINITION:READ+DELETE_CASE']
+        },
+        {
+          name: this.$t('api_test.definition.request.batch_edit'),
+          handleClick: this.handleEditBatch,
+          permissions: ['PROJECT_API_DEFINITION:READ+EDIT_CASE']
+        },
+        {
+          name: this.$t('api_test.automation.batch_execute'),
+          handleClick: this.handleRunBatch,
+          permissions: ['PROJECT_API_DEFINITION:READ+RUN']
+        },
       ],
       trashButtons: [
-        {name: this.$t('commons.reduction'), handleClick: this.handleBatchRestore, permissions: ['PROJECT_API_DEFINITION:READ+DELETE_CASE']},
-        {name: this.$t('api_test.definition.request.batch_delete'), handleClick: this.handleDeleteBatch, permissions: ['PROJECT_API_DEFINITION:READ+EDIT_CASE']},
+        {
+          name: this.$t('commons.reduction'),
+          handleClick: this.handleBatchRestore,
+          permissions: ['PROJECT_API_DEFINITION:READ+DELETE_CASE']
+        },
+        {
+          name: this.$t('api_test.definition.request.batch_delete'),
+          handleClick: this.handleDeleteBatch,
+          permissions: ['PROJECT_API_DEFINITION:READ+EDIT_CASE']
+        },
       ],
       operators: [],
       simpleOperators: [
@@ -385,7 +418,7 @@ export default {
       currentPage: 1,
       pageSize: 10,
       total: 0,
-      screenHeight: 'calc(100vh - 250px)',//屏幕高度
+      screenHeight: 'calc(100vh - 220px)',//屏幕高度
       environmentId: undefined,
       selectAll: false,
       unSelection: [],
@@ -394,12 +427,17 @@ export default {
       resVisible: false,
       response: {},
       timeoutIndex: 0,
-      runCaseIds: []
+      versionFilters: [],
+      versionName: '',
+      runCaseIds: [],
+      versionEnable: false,
     };
   },
   props: {
     currentProtocol: String,
+    currentVersion: String,
     apiDefinitionId: String,
+    apiDefinition: Object,
     selectNodeIds: Array,
     activeDom: String,
     visible: {
@@ -435,7 +473,8 @@ export default {
       this.operators = this.simpleOperators;
       this.buttons = this.simpleButtons;
     }
-
+    // 切换tab之后版本查询
+    this.condition.versionId = this.currentVersion;
     this.initTable();
     // 通知过来的数据跳转到编辑
     if (this.$route.query.caseId) {
@@ -443,6 +482,8 @@ export default {
         this.handleTestCase(response.data);
       });
     }
+    this.getVersionOptions();
+    this.checkVersionEnable();
   },
   watch: {
     selectNodeIds() {
@@ -456,6 +497,12 @@ export default {
       this.unSelection = [];
       this.selectDataCounts = 0;
       this.initTable();
+    },
+    currentVersion() {
+      this.condition.versionId = this.currentVersion;
+      this.initTable();
+      // 选择了版本过滤，版本列上的checkbox也进行过滤
+      this.getVersionOptions(this.currentVersion);
     },
     trashEnable() {
       if (this.trashEnable) {
@@ -525,6 +572,8 @@ export default {
           return "ms-error";
         case "Running":
           return "ms-running";
+        case "errorReportResult":
+          return "ms-error-report-result";
         default:
           return "ms-unexecute";
       }
@@ -537,6 +586,8 @@ export default {
           return this.$t('api_test.automation.fail');
         case "Running":
           return this.$t('commons.testing');
+        case "errorReportResult":
+          return this.$t('error_report_library.option.name');
         default:
           return this.$t('api_test.home_page.detail_card.unexecute');
       }
@@ -785,6 +836,7 @@ export default {
         let obj = {
           name: "copy_" + data.name,
           apiDefinitionId: row.apiDefinitionId,
+          versionId: data.versionId,
           priority: data.priority,
           active: true,
           tags: data.tags,
@@ -1058,7 +1110,10 @@ export default {
             stepArray[i].clazzName = TYPE_TO_C.get(stepArray[i].type);
           }
           if (stepArray[i].type === "Assertions" && !stepArray[i].document) {
-            stepArray[i].document = {type: "JSON", data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}};
+            stepArray[i].document = {
+              type: "JSON",
+              data: {xmlFollowAPI: false, jsonFollowAPI: false, json: [], xml: []}
+            };
           }
           if (stepArray[i] && stepArray[i].authManager && !stepArray[i].authManager.clazzName) {
             stepArray[i].authManager.clazzName = TYPE_TO_C.get(stepArray[i].authManager.type);
@@ -1140,6 +1195,34 @@ export default {
         this.$emit('runRefresh', {});
       });
     },
+    getVersionOptions(currentVersion) {
+      if (hasLicense()) {
+        this.$get('/project/version/get-project-versions/' + getCurrentProjectID(), response => {
+          if (currentVersion) {
+            this.versionFilters = response.data.filter(u => u.id === currentVersion).map(u => {
+              return {text: u.name, value: u.id};
+            });
+          } else {
+            this.versionFilters = response.data.map(u => {
+              return {text: u.name, value: u.id};
+            });
+          }
+        });
+      }
+    },
+    checkVersionEnable() {
+      if (!this.projectId) {
+        return;
+      }
+      if (hasLicense()) {
+        this.$get('/project/version/enable/' + this.projectId, response => {
+          this.versionEnable = response.data;
+          if (!response.data) {
+            this.fields = this.fields.filter(f => f.id !== 'versionId');
+          }
+        });
+      }
+    }
   },
 };
 </script>
@@ -1180,6 +1263,10 @@ export default {
 
 .ms-error {
   color: #F56C6C;
+}
+
+.ms-error-report-result {
+  color: #F6972A;
 }
 
 .ms-running {

@@ -3,25 +3,37 @@
     <ms-main-container>
       <el-card>
         <section class="report-container" v-if="this.report.testId">
-          <ms-api-report-view-header :show-cancel-button="showCancelButton" :is-plan="isPlan" :is-template="isTemplate" :debug="debug" :report="report" @reportExport="handleExport" @reportSave="handleSave"/>
+          <ms-api-report-view-header :show-cancel-button="showCancelButton" :is-plan="isPlan" :is-template="isTemplate"
+                                     :debug="debug" :report="report" @reportExport="handleExport"
+                                     @reportSave="handleSave"/>
           <main v-if="isNotRunning">
             <ms-metric-chart :content="content" :totalTime="totalTime"/>
             <div>
               <el-tabs v-model="activeName" @tab-click="handleClick">
                 <el-tab-pane :label="$t('api_report.total')" name="total">
-                  <ms-scenario-results :treeData="fullTreeNodes" :console="content.console" v-on:requestResult="requestResult" ref="resultsTree"/>
+                  <ms-scenario-results :treeData="fullTreeNodes" :console="content.console"
+                                       v-on:requestResult="requestResult" ref="resultsTree"/>
                 </el-tab-pane>
                 <el-tab-pane name="fail">
                   <template slot="label">
                     <span class="fail">{{ $t('api_report.fail') }}</span>
                   </template>
-                  <ms-scenario-results v-on:requestResult="requestResult" :console="content.console" :treeData="fullTreeNodes" ref="failsTree"/>
+                  <ms-scenario-results v-on:requestResult="requestResult" :console="content.console"
+                                       :treeData="fullTreeNodes" ref="failsTree"/>
+                </el-tab-pane>
+                <el-tab-pane name="errorReport" v-if="content.errorCode > 0">
+                  <template slot="label">
+                    <span class="fail">{{ $t('error_report_library.option.name') }}</span>
+                  </template>
+                  <ms-scenario-results v-on:requestResult="requestResult" :console="content.console"
+                                       :treeData="fullTreeNodes" ref="errorReportTree"/>
                 </el-tab-pane>
                 <el-tab-pane name="console">
                   <template slot="label">
                     <span class="console">{{ $t('api_test.definition.request.console') }}</span>
                   </template>
-                  <ms-code-edit :mode="'text'" :read-only="true" :data.sync="content.console" height="calc(100vh - 500px)"/>
+                  <ms-code-edit :mode="'text'" :read-only="true" :data.sync="content.console"
+                                height="calc(100vh - 500px)"/>
                 </el-tab-pane>
 
               </el-tabs>
@@ -114,6 +126,8 @@ export default {
     filter(index) {
       if (index === "1") {
         this.$refs.failsTree.filter(index);
+      } else if (this.activeName === "errorReport") {
+        this.$refs.errorReportTree.filter("errorReport");
       }
     },
     init() {
@@ -335,7 +349,7 @@ export default {
               this.fullTreeNodes = report.steps;
               this.content.console = report.console;
               this.content.error = report.error;
-              this.content.success = (report.total - report.error);
+              this.content.success = (report.total - report.error - report.errorCode);
               this.totalTime = report.totalTime;
             }
             this.loading = false;

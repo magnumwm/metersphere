@@ -6,7 +6,6 @@ import io.metersphere.api.dto.*;
 import io.metersphere.api.dto.automation.*;
 import io.metersphere.api.dto.automation.parse.ScenarioImport;
 import io.metersphere.api.dto.definition.RunDefinitionRequest;
-import io.metersphere.api.exec.queue.ExecThreadPoolExecutor;
 import io.metersphere.api.service.ApiAutomationService;
 import io.metersphere.base.domain.ApiScenario;
 import io.metersphere.base.domain.ApiScenarioWithBLOBs;
@@ -43,8 +42,6 @@ public class ApiAutomationController {
     private ApiAutomationService apiAutomationService;
     @Resource
     private TaskService taskService;
-    @Resource
-    private ExecThreadPoolExecutor execThreadPoolExecutor;
 
     @PostMapping("/list/{goPage}/{pageSize}")
     @RequiresPermissions("PROJECT_API_SCENARIO:READ")
@@ -70,7 +67,7 @@ public class ApiAutomationController {
 
     @PostMapping("/list/all")
     @RequiresPermissions("PROJECT_API_SCENARIO:READ")
-    public List<ApiScenarioWithBLOBs> listAll(@RequestBody ApiScenarioBatchRequest request) {
+    public List<ApiScenarioDTO> listAll(@RequestBody ApiScenarioBatchRequest request) {
         return apiAutomationService.listAll(request);
     }
 
@@ -174,7 +171,7 @@ public class ApiAutomationController {
     }
 
     @GetMapping("/getApiScenario/{id}")
-    public ApiScenarioWithBLOBs getScenarioDefinition(@PathVariable String id) {
+    public ApiScenarioDTO getScenarioDefinition(@PathVariable String id) {
         return apiAutomationService.getNewApiScenario(id);
     }
 
@@ -194,7 +191,7 @@ public class ApiAutomationController {
     }
 
     @PostMapping("/getApiScenarios")
-    public List<ApiScenarioWithBLOBs> getApiScenarios(@RequestBody List<String> ids) {
+    public List<ApiScenarioDTO> getApiScenarios(@RequestBody List<String> ids) {
         return apiAutomationService.getApiScenarios(ids);
     }
 
@@ -361,7 +358,7 @@ public class ApiAutomationController {
     @PostMapping(value = "/export/jmx")
     @RequiresPermissions(PermissionConstants.PROJECT_API_SCENARIO_READ_EXPORT_SCENARIO)
     @MsAuditLog(module = "api_automation", type = OperLogConstants.EXPORT, sourceId = "#request.id", title = "#request.name", project = "#request.projectId")
-    public List<ApiScenrioExportJmx> exportJmx(@RequestBody ApiScenarioBatchRequest request) {
+    public List<ApiScenarioExportJmxDTO> exportJmx(@RequestBody ApiScenarioBatchRequest request) {
         return apiAutomationService.exportJmx(request);
     }
 
@@ -383,6 +380,21 @@ public class ApiAutomationController {
     @PostMapping("/update/follows/{scenarioId}")
     public void saveFollows(@PathVariable String scenarioId, @RequestBody List<String> follows) {
         apiAutomationService.saveFollows(scenarioId, follows);
+    }
+
+    @GetMapping("versions/{scenarioId}")
+    public List<ApiScenarioDTO> getApiScenarioVersions(@PathVariable String scenarioId) {
+        return apiAutomationService.getApiScenarioVersions(scenarioId);
+    }
+
+    @GetMapping("get/{version}/{refId}")
+    public ApiScenarioDTO getApiScenario(@PathVariable String version, @PathVariable String refId) {
+        return apiAutomationService.getApiScenarioByVersion(refId, version);
+    }
+
+    @GetMapping("delete/{version}/{refId}")
+    public void deleteApiScenario(@PathVariable String version, @PathVariable String refId) {
+        apiAutomationService.deleteApiScenarioByVersion(refId, version);
     }
 
     @PostMapping(value = "/env")

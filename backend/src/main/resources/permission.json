@@ -889,6 +889,60 @@
       "name": "permission.project_enterprise_report.edit",
       "resourceId": "PROJECT_ENTERPRISE_REPORT",
       "license": true
+    },
+    {
+      "id": "PROJECT_VERSION:READ",
+      "name": "project.version.read",
+      "resourceId": "PROJECT_VERSION",
+      "license": true
+    },
+    {
+      "id": "PROJECT_VERSION:READ+CREATE",
+      "name": "project.version.create_version",
+      "resourceId": "PROJECT_VERSION",
+      "license": true
+    },
+    {
+      "id": "PROJECT_VERSION:READ+EDIT",
+      "name": "project.version.edit_version",
+      "resourceId": "PROJECT_VERSION",
+      "license": true
+    },
+    {
+      "id": "PROJECT_VERSION:READ+DELETE",
+      "name": "project.version.delete_version",
+      "resourceId": "PROJECT_VERSION",
+      "license": true
+    },
+    {
+      "id": "PROJECT_VERSION:READ+ENABLE",
+      "name": "project.version.enable",
+      "resourceId": "PROJECT_VERSION",
+      "license": true
+    },
+    {
+      "id": "PROJECT_ERROR_REPORT_LIBRARY:READ",
+      "name": "permission.project_error_report_library.read",
+      "resourceId": "PROJECT_ERROR_REPORT_LIBRARY",
+      "license": true
+    },
+    {
+      "id": "PROJECT_ERROR_REPORT_LIBRARY:READ+CREATE",
+      "name": "permission.project_error_report_library.create",
+      "resourceId": "PROJECT_ERROR_REPORT_LIBRARY",
+      "license": true
+    },
+    {
+      "id": "PROJECT_ERROR_REPORT_LIBRARY:READ+EDIT",
+      "name": "permission.project_error_report_library.edit",
+      "resourceId": "PROJECT_ERROR_REPORT_LIBRARY",
+      "license": true
+    },
+    {
+      "id": "PROJECT_ERROR_REPORT_LIBRARY:READ+DELETE",
+      "name": "permission.project_error_report_library.delete",
+      "resourceId": "PROJECT_ERROR_REPORT_LIBRARY",
+      "license": true
     }
   ],
   "resource": [
@@ -981,6 +1035,16 @@
       "name": "permission.project_file.name"
     },
     {
+      "id": "PROJECT_VERSION",
+      "name": "project.version_manage",
+      "license": true
+    },
+    {
+      "id": "PROJECT_ERROR_REPORT_LIBRARY",
+      "name": "permission.project_error_report_library.name",
+      "license": true
+    },
+    {
       "id": "PROJECT_APP_MANAGER",
       "name": "permission.project_app_manager.name"
     },
@@ -1036,6 +1100,6 @@
     {
       "id": "SYSTEM_PLUGIN",
       "name": "permission.system_plugin.name"
-    }
+    },
   ]
 }

@@ -5,7 +5,7 @@
 
       <el-form :model="authConfig" :rules="rule" ref="authConfig" label-position="right">
         <el-form-item :label="$t('api_test.definition.request.verification_method')" prop="verification">
-          <el-select v-model="authConfig.verification" @change="change"
+          <el-select v-model="authConfig.verification" @change="change" :disabled="isReadOnly"
                      :placeholder="$t('api_test.definition.request.verification_method')" filterable size="small">
             <el-option
                 v-for="item in options"
@@ -27,7 +27,7 @@
         <el-form-item :label="$t('commons.password')" prop="password"
                       v-if=" authConfig.verification!=undefined && authConfig.verification !='No Auth'">
           <el-input v-model="authConfig.password" :placeholder="$t('commons.password')" show-password autocomplete="off"
-                    maxlength="50" show-word-limit/>
+                    maxlength="100" show-word-limit/>
         </el-form-item>
 
       </el-form>
@@ -40,7 +40,7 @@
                ref="authConfig">
 
         <el-form-item :label="$t('api_test.definition.request.encryption')" prop="encryption">
-          <el-select v-model="authConfig.encrypt"
+          <el-select v-model="authConfig.encrypt" :disabled="isReadOnly"
                      :placeholder="$t('api_test.definition.request.verification_method')" filterable size="small">
             <el-option
                 v-for="item in encryptOptions"
@@ -66,7 +66,8 @@ export default {
     encryptShow: {
       type: Boolean,
       default: true,
-    }
+    },
+    isReadOnly: Boolean,
   },
   watch: {
     request() {

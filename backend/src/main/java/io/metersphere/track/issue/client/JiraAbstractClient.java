@@ -55,6 +55,31 @@ public abstract class JiraAbstractClient extends BaseClient {
         return fields;
     }
 
+    public List<JiraIssueType> getIssueType(String projectKey) {
+        JiraIssueProject project = getProject(projectKey);
+        String url = getUrl("/issuetype/project?projectId={0}");
+        ResponseEntity<String> response = null;
+        try {
+            response = restTemplate.exchange(url, HttpMethod.GET, getAuthHttpEntity(), String.class, project.getId());
+        } catch (Exception e) {
+            LogUtil.error(e.getMessage(), e);
+            MSException.throwException(e.getMessage());
+        }
+        return (List<JiraIssueType>) getResultForList(JiraIssueType.class, response);
+    }
+
+    public JiraIssueProject getProject(String projectKey) {
+        String url = getUrl("/project/" + projectKey);
+        ResponseEntity<String> response = null;
+        try {
+            response = restTemplate.exchange(url, HttpMethod.GET, getAuthHttpEntity(), String.class);
+        } catch (Exception e) {
+            LogUtil.error(e.getMessage(), e);
+            MSException.throwException(e.getMessage());
+        }
+        return (JiraIssueProject) getResultForObject(JiraIssueProject.class, response);
+    }
+
     public List<JiraUser> getAssignableUser(String projectKey, int startAt, int maxResults) {
         String url = getBaseUrl() + "/user/assignable/search?project={1}" + "&maxResults=" + maxResults + "&startAt=" + startAt;
         ResponseEntity<String> response = null;
@@ -134,7 +159,6 @@ public abstract class JiraAbstractClient extends BaseClient {
             response = restTemplate.exchange(getBaseUrl() + "/issue/" + issueKey + "/attachments", HttpMethod.POST, requestEntity, String.class);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            MSException.throwException(e.getMessage());
         }
         System.out.println(response);
     }
@@ -158,6 +182,10 @@ public abstract class JiraAbstractClient extends BaseClient {
 
     protected String getBaseUrl() {
         return ENDPOINT + PREFIX;
+    }
+
+    protected String getUrl(String path) {
+        return getBaseUrl() + path;
     }
 
     public void setConfig(JiraConfig config) {

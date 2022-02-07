@@ -28,15 +28,20 @@ import io.metersphere.constants.RunModeConstants;
 import io.metersphere.plugin.core.MsParameter;
 import io.metersphere.plugin.core.MsTestElement;
 import io.metersphere.service.EnvironmentGroupProjectService;
+import io.metersphere.utils.LoggerUtil;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.jmeter.config.Arguments;
 import org.apache.jmeter.config.CSVDataSet;
 import org.apache.jmeter.config.RandomVariableConfig;
 import org.apache.jmeter.modifiers.CounterConfig;
+import org.apache.jmeter.modifiers.JSR223PreProcessor;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerProxy;
 import org.apache.jmeter.save.SaveService;
+import org.apache.jmeter.testelement.AbstractTestElement;
 import org.apache.jmeter.testelement.TestElement;
+import org.apache.jmeter.testelement.TestPlan;
+import org.apache.jmeter.threads.ThreadGroup;
 import org.apache.jorphan.collections.HashTree;
 
 import java.io.ByteArrayOutputStream;
@@ -179,16 +184,6 @@ public class ElementUtil {
             path = StringUtils.isEmpty(element.getName()) ? element.getType() : element.getName() + DelimiterConstants.STEP_DELIMITER.toString() + path;
         }
         return getFullPath(element.getParent(), path);
-    }
-
-    public static void getScenarioSet(MsTestElement element, List<String> id_names) {
-        if (StringUtils.equals(element.getType(), "scenario")) {
-            id_names.add(element.getResourceId() + "_" + element.getName());
-        }
-        if (element.getParent() == null) {
-            return;
-        }
-        getScenarioSet(element.getParent(), id_names);
     }
 
     public static String getParentName(MsTestElement parent) {
@@ -495,6 +490,76 @@ public class ElementUtil {
         }
     }
 
+    public static void mergeHashTree(JSONObject element, JSONArray targetHashTree) {
+        try {
+            JSONArray sourceHashTree = element.getJSONArray("hashTree");
+            if (CollectionUtils.isNotEmpty(sourceHashTree) && CollectionUtils.isNotEmpty(targetHashTree) && sourceHashTree.size() < targetHashTree.size()) {
+                element.put("hashTree", targetHashTree);
+                return;
+            }
+            List<String> sourceIds = new ArrayList<>();
+            List<String> delIds = new ArrayList<>();
+            Map<String, JSONObject> updateMap = new HashMap<>();
+            if (CollectionUtils.isEmpty(sourceHashTree)) {
+                if (CollectionUtils.isNotEmpty(targetHashTree)) {
+                    element.put("hashTree", targetHashTree);
+                }
+                return;
+            }
+            if (CollectionUtils.isNotEmpty(targetHashTree)) {
+                for (int i = 0; i < targetHashTree.size(); i++) {
+                    JSONObject item = targetHashTree.getJSONObject(i);
+                    item.put("disabled", true);
+                    if (StringUtils.isNotEmpty(item.getString("id"))) {
+                        updateMap.put(item.getString("id"), item);
+                    }
+                }
+            }
+            // 找出待更新内容和源已经被删除的内容
+            if (CollectionUtils.isNotEmpty(sourceHashTree)) {
+                for (int i = 0; i < sourceHashTree.size(); i++) {
+                    JSONObject source = sourceHashTree.getJSONObject(i);
+                    if (source != null) {
+                        sourceIds.add(source.getString("id"));
+                        if (!StringUtils.equals(source.getString("label"), "SCENARIO-REF-STEP") && StringUtils.isNotEmpty(source.getString("id"))) {
+                            if (updateMap.containsKey(source.getString("id"))) {
+                                sourceHashTree.set(i, updateMap.get(source.getString("id")));
+                            } else {
+                                delIds.add(source.getString("id"));
+                            }
+                        }
+                        // 历史数据兼容
+                        if (StringUtils.isEmpty(source.getString("id")) && !StringUtils.equals(source.getString("label"), "SCENARIO-REF-STEP") && i < targetHashTree.size()) {
+                            sourceHashTree.set(i, targetHashTree.get(i));
+                        }
+                    }
+                }
+            }
+
+            // 删除多余的步骤
+            for (int i = 0; i < sourceHashTree.size(); i++) {
+                JSONObject source = sourceHashTree.getJSONObject(i);
+                if (delIds.contains(source.getString("id"))) {
+                    sourceHashTree.remove(i);
+                }
+            }
+            // 补充新增的源引用步骤
+            if (CollectionUtils.isNotEmpty(targetHashTree)) {
+                for (int i = 0; i < targetHashTree.size(); i++) {
+                    JSONObject item = sourceHashTree.getJSONObject(i);
+                    if (!sourceIds.contains(item.getString("id"))) {
+                        sourceHashTree.add(item);
+                    }
+                }
+            }
+            if (CollectionUtils.isNotEmpty(sourceHashTree)) {
+                element.put("hashTree", sourceHashTree);
+            }
+        } catch (Exception e) {
+            element.put("hashTree", targetHashTree);
+        }
+    }
+
     public static String hashTreeToString(HashTree hashTree) {
         try (ByteArrayOutputStream bas = new ByteArrayOutputStream()) {
             SaveService.saveTree(hashTree, bas);
@@ -511,5 +576,53 @@ public class ElementUtil {
             resourceId = config.getScenarioId() + "=" + resourceId;
         }
         return resourceId + "_" + ElementUtil.getFullIndexPath(parent, indexPath);
+    }
+
+    public static JSR223PreProcessor argumentsToProcessor(Arguments arguments) {
+        JSR223PreProcessor processor = new JSR223PreProcessor();
+        processor.setEnabled(true);
+        processor.setName("User Defined Variables");
+        processor.setProperty("scriptLanguage", "beanshell");
+        processor.setProperty(TestElement.TEST_CLASS, JSR223PreProcessor.class.getName());
+        processor.setProperty(TestElement.GUI_CLASS, SaveService.aliasToClass("TestBeanGUI"));
+        StringBuffer script = new StringBuffer();
+        if (arguments != null) {
+            for (int i = 0; i < arguments.getArguments().size(); ++i) {
+                String argValue = arguments.getArgument(i).getValue();
+                script.append("vars.put(\"" + arguments.getArgument(i).getName() + "\",\"" + argValue + "\");").append("\n");
+            }
+            processor.setProperty("script", script.toString());
+        }
+        return processor;
+    }
+
+    public static void setBaseParams(AbstractTestElement sampler, MsTestElement parent, ParameterConfig config, String id, String indexPath) {
+        sampler.setProperty("MS-ID", id);
+        sampler.setProperty("MS-RESOURCE-ID", ElementUtil.getResourceId(id, config, parent, indexPath));
+        LoggerUtil.debug("mqtt sampler resourceId :" + sampler.getPropertyAsString("MS-RESOURCE-ID"));
+    }
+
+    public static void accuracyHashTree(HashTree hashTree) {
+        Map<Object, HashTree> objects = new LinkedHashMap<>();
+        Object groupHashTree = hashTree;
+        if (hashTree != null && hashTree.size() > 0) {
+            for (Object key : hashTree.keySet()) {
+                if (key instanceof TestPlan) {
+                    for (Object node : hashTree.get(key).keySet()) {
+                        if (node instanceof ThreadGroup) {
+                            groupHashTree = hashTree.get(key).get(node);
+                        }
+                    }
+                } else {
+                    objects.put(key, hashTree.get(key));
+                }
+            }
+        }
+        if (!objects.isEmpty() && groupHashTree instanceof HashTree) {
+            for (Object key : objects.keySet()) {
+                hashTree.remove(key);
+                ((HashTree) groupHashTree).add(key, objects.get(key));
+            }
+        }
     }
 }

@@ -1,9 +1,9 @@
 <template>
   <el-card class="ms-cards" v-if="request && request.responseResult">
     <div class="request-result">
-      <div @click="active" >
+      <div @click="active">
         <el-row :gutter="10" type="flex" align="middle" class="info">
-          <el-col :span="10" v-if="indexNumber!=undefined">
+          <el-col class="ms-req-name-col" :span="10" v-if="indexNumber!=undefined">
             <el-tooltip :content="getName(request.name)" placement="top">
               <div class="method ms-req-name">
                 <div class="el-step__icon is-text ms-api-col-create">
@@ -14,8 +14,19 @@
               </div>
             </el-tooltip>
           </el-col>
-          <el-col :span="9">
-            <el-tooltip effect="dark" :content="request.responseResult.responseCode" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" placement="bottom" :open-delay="800">
+          <el-col :span="3">
+            <el-tooltip effect="dark" v-if="errorCode" :content="errorCode"
+                        style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" placement="bottom"
+                        :open-delay="800">
+              <div style="color: #F6972A">
+                {{ errorCode }}
+              </div>
+            </el-tooltip>
+          </el-col>
+          <el-col :span="6">
+            <el-tooltip effect="dark" :content="request.responseResult.responseCode"
+                        style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" placement="bottom"
+                        :open-delay="800">
               <div style="color: #5daf34" v-if="request.success">
                 {{ request.responseResult.responseCode }}
               </div>
@@ -38,7 +49,17 @@
                 <i class="el-icon-loading" style="font-size: 16px"/>
                 {{ $t('commons.testing') }}
               </el-tag>
-              <el-tag size="mini" v-else-if="request.unexecute">{{ $t('api_test.home_page.detail_card.unexecute') }}</el-tag>
+              <el-tag size="mini" v-else-if="request.unexecute">{{
+                  $t('api_test.home_page.detail_card.unexecute')
+                }}
+              </el-tag>
+              <el-tag size="mini" v-else-if="!request.success && request.status && request.status==='unexecute'">{{
+                  $t('api_test.home_page.detail_card.unexecute')
+                }}
+              </el-tag>
+              <el-tag v-else-if="errorCode" class="ms-test-error_code" size="mini">
+                {{ $t('error_report_library.option.name') }}
+              </el-tag>
               <el-tag size="mini" type="success" v-else-if="request.success"> {{ $t('api_report.success') }}</el-tag>
               <el-tag size="mini" type="danger" v-else> {{ $t('api_report.fail') }}</el-tag>
             </div>
@@ -81,6 +102,7 @@ export default {
     scenarioName: String,
     indexNumber: Number,
     console: String,
+    errorCode: String,
   },
   data() {
     return {
@@ -96,6 +118,20 @@ export default {
         type: String,
         default() {
           return "#F9F1EA";
+        }
+      },
+    }
+  },
+  watch: {
+    request: {
+      deep: true,
+      handler(n) {
+        if (this.request.errorCode) {
+          this.errorCode = this.request.errorCode;
+        } else if (this.request.attachInfoMap && this.request.attachInfoMap.errorReportResult) {
+          if (this.request.attachInfoMap.errorReportResult !== "") {
+            this.errorCode = this.request.attachInfoMap.errorReportResult;
+          }
         }
       },
     }
@@ -195,6 +231,12 @@ export default {
   color: #6D317C;
 }
 
+.ms-test-error_code {
+  color: #F6972A;
+  background-color: #FDF5EA;
+  border-color: #FDF5EA;
+}
+
 .ms-api-col {
   background-color: #EFF0F0;
   border-color: #EFF0F0;
@@ -230,11 +272,14 @@ export default {
 .ms-req-name {
   display: inline-block;
   margin: 0 5px;
-  overflow-x: hidden;
   padding-bottom: 0;
   text-overflow: ellipsis;
   vertical-align: middle;
   white-space: nowrap;
   width: 350px;
+}
+
+.ms-req-name-col {
+  overflow-x: hidden;
 }
 </style>

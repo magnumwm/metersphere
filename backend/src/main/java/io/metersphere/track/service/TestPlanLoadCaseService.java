@@ -9,6 +9,7 @@ import io.metersphere.base.mapper.LoadTestMapper;
 import io.metersphere.base.mapper.LoadTestReportMapper;
 import io.metersphere.base.mapper.TestPlanLoadCaseMapper;
 import io.metersphere.base.mapper.TestPlanMapper;
+import io.metersphere.base.mapper.ext.ExtLoadTestMapper;
 import io.metersphere.base.mapper.ext.ExtLoadTestReportMapper;
 import io.metersphere.base.mapper.ext.ExtTestPlanLoadCaseMapper;
 import io.metersphere.commons.constants.PerformanceTestStatus;
@@ -19,7 +20,9 @@ import io.metersphere.commons.utils.*;
 import io.metersphere.constants.RunModeConstants;
 import io.metersphere.controller.request.OrderRequest;
 import io.metersphere.controller.request.ResetOrderRequest;
+import io.metersphere.dto.LoadTestDTO;
 import io.metersphere.log.vo.OperatingLogDetails;
+import io.metersphere.performance.request.QueryTestPlanRequest;
 import io.metersphere.performance.request.RunTestPlanRequest;
 import io.metersphere.performance.service.PerformanceTestService;
 import io.metersphere.track.dto.*;
@@ -68,8 +71,10 @@ public class TestPlanLoadCaseService {
     @Resource
     @Lazy
     private TestPlanService testPlanService;
+    @Resource
+    private ExtLoadTestMapper extLoadTestMapper;
 
-    public Pager<List<LoadTest>> relevanceList(LoadCaseRequest request, int goPage, int pageSize) {
+    public Pager<List<LoadTestDTO>> relevanceList(LoadCaseRequest request, int goPage, int pageSize) {
         List<OrderRequest> orders = ServiceUtils.getDefaultSortOrder(request.getOrders());
         orders.forEach(i -> i.setPrefix("load_test"));
         request.setOrders(orders);
@@ -78,10 +83,16 @@ public class TestPlanLoadCaseService {
         }
         List<String> ids = extTestPlanLoadCaseMapper.selectIdsNotInPlan(request);
         if (CollectionUtils.isEmpty(ids)) {
-            return PageUtils.setPageInfo(PageHelper.startPage(goPage, pageSize, true), new ArrayList<>());
+            return PageUtils.setPageInfo(PageHelper.startPage(goPage, pageSize, true), new ArrayList <>());
         }
         Page<Object> page = PageHelper.startPage(goPage, pageSize, true);
-        return PageUtils.setPageInfo(page, performanceTestService.getLoadTestListByIds(ids));
+        QueryTestPlanRequest newRequest = new QueryTestPlanRequest();
+        BeanUtils.copyBean(newRequest, request);
+        Map filters = new HashMap();
+        filters.put("id", ids);
+        newRequest.setFilters(filters);
+        List<LoadTestDTO> loadTestDTOS = extLoadTestMapper.list(newRequest);
+        return PageUtils.setPageInfo(page, loadTestDTOS);
     }
 
     public List<TestPlanLoadCaseDTO> list(LoadCaseRequest request) {

@@ -104,11 +104,13 @@
         test_case.custom_num) as customNum, test_case.review_status,
         test_case.remark as remark, test_case.maintainer, test_case.steps as steps, test_case.node_id as nodeId,
         test_case_node.name as model,
-        project.name as projectName
+        project.name as projectName,
+        project_version.name as versionName,project_version.id as versionId
         from test_case_review_test_case
         inner join test_case on test_case_review_test_case.case_id = test_case.id
         left join test_case_node on test_case_node.id=test_case.node_id
         inner join project on project.id = test_case.project_id
+        left join project_version on project_version.project_id = project.id and test_case.version_id = project_version.id
         <include refid="queryWhereCondition"/>
         <if test="request.orders != null and request.orders.size() > 0">
             order by
@@ -165,6 +167,9 @@
             <if test="request.method != null">
                 and test_case.method = #{request.method}
             </if>
+            <include refid="queryVersionCondition">
+                <property name="versionTable" value="test_case"/>
+            </include>
             <include refid="filter"/>
         </where>
     </sql>
@@ -199,6 +204,12 @@
                         </when>
                         <when test="key=='review_status'">
                             and test_case.review_status in
+                            <foreach collection="values" item="value" separator="," open="(" close=")">
+                                #{value}
+                            </foreach>
+                        </when>
+                        <when test="key=='version_id'">
+                            and test_case.version_id in
                             <foreach collection="values" item="value" separator="," open="(" close=")">
                                 #{value}
                             </foreach>
@@ -451,4 +462,13 @@
         </if>
         order by `order` desc limit 1;
     </select>
+
+    <sql id="queryVersionCondition">
+        <if test="request.versionId != null">
+            and ${versionTable}.version_id = #{request.versionId}
+        </if>
+        <if test="request.refId != null">
+            and ${versionTable}.ref_id = #{request.refId}
+        </if>
+    </sql>
 </mapper>

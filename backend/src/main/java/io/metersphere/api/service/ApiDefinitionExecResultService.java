@@ -2,16 +2,15 @@ package io.metersphere.api.service;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import io.metersphere.api.dto.RequestResultExpandDTO;
 import io.metersphere.api.dto.datacount.ExecutedCaseInfoResult;
 import io.metersphere.base.domain.*;
-import io.metersphere.base.mapper.ApiDefinitionExecResultMapper;
-import io.metersphere.base.mapper.ApiDefinitionMapper;
-import io.metersphere.base.mapper.ApiTestCaseMapper;
-import io.metersphere.base.mapper.TestCaseReviewApiCaseMapper;
+import io.metersphere.base.mapper.*;
 import io.metersphere.base.mapper.ext.ExtApiDefinitionExecResultMapper;
 import io.metersphere.commons.constants.*;
 import io.metersphere.commons.utils.DateUtils;
 import io.metersphere.commons.utils.LogUtil;
+import io.metersphere.commons.utils.ResponseUtil;
 import io.metersphere.commons.utils.SessionUtils;
 import io.metersphere.dto.RequestResult;
 import io.metersphere.dto.ResultDTO;
@@ -28,6 +27,7 @@ import io.metersphere.track.service.TestPlanTestCaseService;
 import io.metersphere.utils.LoggerUtil;
 import org.apache.commons.beanutils.BeanMap;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +64,8 @@ public class ApiDefinitionExecResultService {
     private TestPlanTestCaseService testPlanTestCaseService;
     @Resource
     private ApiTestCaseService apiTestCaseService;
+    @Resource
+    private UserMapper userMapper;
 
     public void saveApiResult(List<RequestResult> requestResults, ResultDTO dto) {
         boolean isFirst = true;
@@ -108,13 +110,13 @@ public class ApiDefinitionExecResultService {
                 event = NoticeConstants.Event.EXECUTE_FAILED;
                 status = "失败";
             }
-
+            User user = userMapper.selectByPrimaryKey(result.getUserId());
             Map paramMap = new HashMap<>(beanMap);
-            paramMap.put("operator", SessionUtils.getUser().getName());
+            paramMap.put("operator", user != null ? user.getName() : SessionUtils.getUser().getName());
             paramMap.put("status", result.getStatus());
             String context = "${operator}执行接口用例" + status + ": ${name}";
             NoticeModel noticeModel = NoticeModel.builder()
-                    .operator(SessionUtils.getUserId())
+                    .operator(result.getUserId() != null ? result.getUserId() : SessionUtils.getUserId())
                     .context(context)
                     .subject("接口用例通知")
                     .successMailTemplate("api/CaseResultSuccess")
@@ -134,7 +136,9 @@ public class ApiDefinitionExecResultService {
         }
     }
 
-    private String editStatus(String type, String status, Long time, String reportId, String testId) {
+    public void editStatus(ApiDefinitionExecResult saveResult, String type, String status, Long time, String reportId, String testId) {
+        String name = testId;
+        String version = "";
         if (StringUtils.equalsAnyIgnoreCase(type, ApiRunMode.API_PLAN.name(), ApiRunMode.SCHEDULE_API_PLAN.name(), ApiRunMode.JENKINS_API_PLAN.name(), ApiRunMode.MANUAL_PLAN.name())) {
             TestPlanApiCase testPlanApiCase = testPlanApiCaseService.getById(testId);
             ApiTestCaseWithBLOBs caseWithBLOBs = null;
@@ -161,12 +165,13 @@ public class ApiDefinitionExecResultService {
                 }
             }
             if (caseWithBLOBs != null) {
-                return caseWithBLOBs.getName();
+                name = caseWithBLOBs.getName();
+                version = caseWithBLOBs.getVersionId();
             }
         } else {
             ApiDefinition apiDefinition = apiDefinitionMapper.selectByPrimaryKey(testId);
             if (apiDefinition != null) {
-                return apiDefinition.getName();
+                name = apiDefinition.getName();
             } else {
                 ApiTestCaseWithBLOBs caseWithBLOBs = apiTestCaseMapper.selectByPrimaryKey(testId);
                 if (caseWithBLOBs != null) {
@@ -179,11 +184,13 @@ public class ApiDefinitionExecResultService {
                     if (LoggerUtil.getLogger().isDebugEnabled()) {
                         LoggerUtil.debug("更新用例【 " + caseWithBLOBs.getId() + " 】");
                     }
-                    return caseWithBLOBs.getName();
+                    name = caseWithBLOBs.getName();
+                    version = caseWithBLOBs.getVersionId();
                 }
             }
         }
-        return testId;
+        saveResult.setVersionId(version);
+        saveResult.setName(name);
     }
 
     /**
@@ -203,8 +210,17 @@ public class ApiDefinitionExecResultService {
 
             for (RequestResult item : requestResults) {
                 if (!StringUtils.startsWithAny(item.getName(), "PRE_PROCESSOR_ENV_", "POST_PROCESSOR_ENV_")) {
-                    this.save(item, dto.getReportId(), dto.getConsole(), countExpectProcessResultCount, dto.getRunMode(), dto.getTestId(), isFirst);
+                    //对响应内容进行进一步解析。如果有附加信息（比如误报库信息），则根据附加信息内的数据进行其他判读
+                    RequestResultExpandDTO expandDTO = ResponseUtil.parseByRequestResult(item);
+
+                    ApiDefinitionExecResult reportResult = this.save(item, dto.getReportId(), dto.getConsole(), countExpectProcessResultCount, dto.getRunMode(), dto.getTestId(), isFirst);
                     String status = item.isSuccess() ? "success" : "error";
+                    if (reportResult != null) {
+                        status = reportResult.getStatus();
+                    }
+                    if (MapUtils.isNotEmpty(expandDTO.getAttachInfoMap())) {
+                        status = expandDTO.getStatus();
+                    }
                     if (StringUtils.equalsAny(dto.getRunMode(), ApiRunMode.SCHEDULE_API_PLAN.name(), ApiRunMode.JENKINS_API_PLAN.name())) {
                         TestPlanApiCase apiCase = testPlanApiCaseService.getById(dto.getTestId());
                         if (apiCase != null) {
@@ -329,14 +345,22 @@ public class ApiDefinitionExecResultService {
             if (StringUtils.isEmpty(saveResult.getActuator())) {
                 saveResult.setActuator("LOCAL");
             }
+            //对响应内容进行进一步解析。如果有附加信息（比如误报库信息），则根据附加信息内的数据进行其他判读
+            RequestResultExpandDTO expandDTO = ResponseUtil.parseByRequestResult(item);
+            String status = item.isSuccess() ? ExecuteResult.success.name() : ExecuteResult.error.name();
+            if (MapUtils.isNotEmpty(expandDTO.getAttachInfoMap())) {
+                status = expandDTO.getStatus();
+                saveResult.setContent(JSON.toJSONString(expandDTO));
+            } else {
+                saveResult.setContent(JSON.toJSONString(item));
+            }
+
             saveResult.setName(item.getName());
             saveResult.setType(type);
             saveResult.setCreateTime(item.getStartTime());
-            String status = item.isSuccess() ? ExecuteResult.success.name() : ExecuteResult.error.name();
-            saveResult.setName(editStatus(type, status, saveResult.getCreateTime(), saveResult.getId(), testId));
+            editStatus(saveResult, type, status, saveResult.getCreateTime(), saveResult.getId(), testId);
             saveResult.setStatus(status);
             saveResult.setResourceId(item.getName());
-            saveResult.setContent(JSON.toJSONString(item));
             saveResult.setStartTime(item.getStartTime());
             saveResult.setEndTime(item.getResponseResult().getResponseTime());
             // 清空上次执行结果的内容，只保留近五条结果

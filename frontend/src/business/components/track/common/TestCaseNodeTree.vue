@@ -43,7 +43,7 @@
 import NodeEdit from "./NodeEdit";
 import MsNodeTree from "./NodeTree";
 import TestCaseCreate from "@/business/components/track/case/components/TestCaseCreate";
-import TestCaseImport from "@/business/components/track/case/components/TestCaseImport";
+import TestCaseImport from "@/business/components/track/case/components/import/TestCaseImport";
 import TestCaseExport from "@/business/components/track/case/components/TestCaseExport";
 import MsSearchBar from "@/business/components/common/components/search/MsSearchBar";
 import {buildTree} from "../../api/definition/model/NodeTree";
@@ -94,7 +94,8 @@ export default {
           callback: this.handleExport,
           permissions: ['PROJECT_TRACK_CASE:READ+EXPORT']
         }
-      ]
+      ],
+      currentNode: {}
     };
   },
   props: {
@@ -147,11 +148,14 @@ export default {
     },
     enableTrash() {
       this.condition.trashEnable = true;
+      // 隐藏公共用例库背景色
+      this.condition.publicEnable = false;
       this.$emit('enableTrash', this.condition.trashEnable);
       this.$emit('toPublic', 'trash');
     },
     enablePublic() {
       this.condition.publicEnable = true;
+      this.condition.trashEnable = false;
       this.$emit('enablePublic', this.condition.publicEnable);
       this.$emit('toPublic', 'public');
     },
@@ -166,7 +170,13 @@ export default {
           if (this.$refs.nodeTree) {
             this.$refs.nodeTree.filter(this.condition.filterText);
           }
+          this.setCurrentKey();
         });
+      }
+    },
+    setCurrentKey() {
+      if (this.$refs.nodeTree) {
+        this.$refs.nodeTree.setCurrentKey(this.currentNode);
       }
     },
     increase(id) {
@@ -238,9 +248,12 @@ export default {
 
       this.$store.commit('setTestCaseSelectNode', node);
       this.$store.commit('setTestCaseSelectNodeIds', nodeIds);
+      this.condition.trashEnable = false;
+      this.condition.publicEnable = false;
 
       this.$emit("nodeSelectEvent", node, nodeIds, pNodes);
       this.currentModule = node.data;
+      this.currentNode = node;
       if (node.data.id === 'root') {
         this.$emit("nodeSelectEvent", node, [], pNodes);
       } else {
