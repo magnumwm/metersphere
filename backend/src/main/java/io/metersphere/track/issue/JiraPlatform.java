@@ -438,7 +438,8 @@ public class JiraPlatform extends AbstractIssuePlatform {
                 System.out.println(e.getMessage());
             }
         //初始化mybatis,创建SqlSessionFactory类的实例
-        return new SqlSessionFactoryBuilder().build(resourceAsStream);
+        sqlSessionFactory  = new SqlSessionFactoryBuilder().build(resourceAsStream);
+        return sqlSessionFactory;
     }
 
     @Override
