@@ -449,7 +449,9 @@ public abstract class AbstractIssuePlatform implements IssuesPlatform {
     }
 
     @Override
-    public void syncAllIssues(Project project) {}
+    public void syncAllIssues(Project project) {
+
+    }
 
     @Override
     public IssueTemplateDao getThirdPartTemplate() {return null;}

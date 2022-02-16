@@ -1,20 +1,22 @@
 package io.metersphere.track.issue;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.metersphere.base.domain.IssuesDao;
 import io.metersphere.base.domain.IssuesWithBLOBs;
 import io.metersphere.base.domain.Project;
+import io.metersphere.base.mapper.IssuesMapper;
+import io.metersphere.base.mapper.ext.ExtFileContentMapper;
 import io.metersphere.commons.constants.CustomFieldType;
 import io.metersphere.commons.constants.IssuesManagePlatform;
 import io.metersphere.commons.constants.IssuesStatus;
 import io.metersphere.commons.exception.MSException;
+import io.metersphere.commons.utils.BeanUtils;
 import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.commons.utils.LogUtil;
-import io.metersphere.dto.CustomFieldDao;
-import io.metersphere.dto.CustomFieldItemDTO;
-import io.metersphere.dto.IssueTemplateDao;
-import io.metersphere.dto.UserDTO;
+import io.metersphere.commons.utils.SessionUtils;
+import io.metersphere.dto.*;
 import io.metersphere.service.CustomFieldService;
 import io.metersphere.track.dto.DemandDTO;
 import io.metersphere.track.issue.client.JiraClientV2;
@@ -26,12 +28,19 @@ import io.metersphere.track.request.testcase.IssuesUpdateRequest;
 import io.metersphere.track.service.IssuesService;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -88,6 +97,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         issue.setDescription(description);
         issue.setPlatformStatus(status);
         issue.setPlatform(key);
+        issue.setNum(getNextNum(issue.getProjectId()));
         issue.setCustomFields(syncIssueCustomField(issue.getCustomFields(), jiraIssue.getFields()));
         return issue;
     }
@@ -99,6 +109,21 @@ public class JiraPlatform extends AbstractIssuePlatform {
             return statusCategory.getString("name");
         }
         return "";
+    }
+
+    private List<IssueAttachment> getAttachments(JSONObject fields) {
+        JSONArray attachmentArr = fields.getJSONArray("attachment");
+        List<IssueAttachment> IssueAttachmentList = new ArrayList<>();
+        if (attachmentArr != null) {
+            for (int i=0; i< attachmentArr.size(); i++) {
+                JSONObject item = attachmentArr.getJSONObject(i);
+                IssueAttachment issueAttachment = new IssueAttachment();
+                issueAttachment.setFilename(item.getString("filename"));
+                issueAttachment.setContent(item.getString("content"));
+                issueAttachment.setThumbnail(item.getString("thumbnail"));
+            }
+        }
+        return IssueAttachmentList;
     }
 
     @Override
@@ -123,6 +148,37 @@ public class JiraPlatform extends AbstractIssuePlatform {
             startAt += maxResults;
         } while (demands.size() >= maxResults);
         return list;
+    }
+
+    @Override
+    public List<IssuesDao> getAllIssuesList(String projectId) {
+        List<IssuesDao> jiraList = new ArrayList<>();
+        Project project = getProject();
+        int maxResults = 50, startAt = 0;
+        JSONArray issues;
+        do {
+            issues = jiraClientV2.getProjectIssues(startAt, maxResults, project.getJiraKey(), getIssueType(project.getIssueConfig()));
+            for (int i = 0; i < issues.size(); i++) {
+                IssuesDao issuesDao = new IssuesDao();
+                JSONObject issue = issues.getJSONObject(i);
+                String issueKey = issue.getString("key");
+                JSONObject fields = issue.getJSONObject("fields");
+                String jira_status = fields.getJSONObject("status").getString("name");
+                String summary = fields.getString("summary");
+                issuesDao.setTitle(summary);
+                issuesDao.setCreateTime(fields.getLong("created"));
+                issuesDao.setUpdateTime(fields.getLong("updated"));
+                issuesDao.setId(UUID.randomUUID().toString());
+                issuesDao.setPlatform(project.getPlatform());
+                issuesDao.setPlatformId(issueKey);
+                issuesDao.setPlatformStatus(jira_status);
+                issuesDao.setProjectId(projectId);
+                issuesDao.setCreator(SessionUtils.getUserId());
+                jiraList.add(issuesDao);
+            }
+            startAt += maxResults;
+        } while (issues.size() >= maxResults);
+        return jiraList;
     }
 
     private void validateConfig(JiraConfig config) {
@@ -195,7 +251,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         int maxResults = 50, startAt = 0;
         try {
             Map<String, JiraCreateMetadataResponse.Field> createMetadata = jiraClientV2.getCreateMetadata(project.getJiraKey(), getIssueType(project.getIssueConfig()));
-            List<JiraUser> userOptions = jiraClientV2.getAssignableUser(project.getJiraKey(), maxResults, startAt);
+            List<JiraUser> userOptions = jiraClientV2.getAssignableUser(project.getJiraKey(), startAt, maxResults);
 
             Boolean isUserKey = false;
             if (CollectionUtils.isNotEmpty(userOptions) && StringUtils.isBlank(userOptions.get(0).getAccountId())) {
@@ -244,13 +300,16 @@ public class JiraPlatform extends AbstractIssuePlatform {
         JSONObject project = new JSONObject();
 
         String desc = issuesRequest.getDescription();
+        List<File> imageFiles = getImageFiles(issuesRequest);
+//        String jira_desc = desc.replace()
+//        imageFiles.forEach(img -> );
         desc = removeImage(desc);
 
         fields.put("project", project);
         project.put("key", jiraKey);
 
         JSONObject issuetype = new JSONObject();
-        issuetype.put("name", issuetypeStr);
+        issuetype.put("id", issuetypeStr);
         fields.put("issuetype", issuetype);
 
         JSONObject addJiraIssueParam = new JSONObject();
@@ -280,11 +339,11 @@ public class JiraPlatform extends AbstractIssuePlatform {
                         if (StringUtils.equalsAny(item.getType(), "select", "radio", "member")) {
                             JSONObject param = new JSONObject();
                             if (fieldName.equals("assignee") || fieldName.equals("reporter")) {
-//                                if (issuesRequest.isThirdPartPlatform()) {
-//                                    param.put("id", item.getValue());
-//                                } else {
+                                if (issuesRequest.isThirdPartPlatform()) {
+                                    param.put("id", item.getValue());
+                                } else {
                                     param.put("name", item.getValue());
-//                                }
+                                }
                             } else {
                                 param.put("id", item.getValue());
                             }
@@ -321,7 +380,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
                                 fields.put(fieldName, attr);
                             }
                         } else if (StringUtils.equalsAny(item.getType(),  "richText")) {
-                            fields.put(fieldName, removeImage(item.getValue().toString()));
+//                            fields.put(fieldName, removeImage(item.getValue().toString()));
                             if (fieldName.equals("description")) {
                                 issuesRequest.setDescription(item.getValue().toString());
                             }
@@ -339,6 +398,8 @@ public class JiraPlatform extends AbstractIssuePlatform {
     public void updateIssue(IssuesUpdateRequest request) {
         setUserConfig();
         Project project = getProject();
+        List<File> imageFiles = getImageFiles(request);
+        imageFiles.forEach(img -> jiraClientV2.uploadAttachment(request.getPlatformId(), img));
         JSONObject param = buildUpdateParam(request, getIssueType(project.getIssueConfig()), project.getJiraKey());
         handleIssueUpdate(request);
         jiraClientV2.updateIssue(request.getPlatformId(), JSONObject.toJSONString(param));
@@ -367,33 +428,61 @@ public class JiraPlatform extends AbstractIssuePlatform {
         return null;
     }
 
+    private  SqlSessionFactory getSqlSessionFactory(){
+        SqlSessionFactory sqlSessionFactory;
+        InputStream resourceAsStream = null;
+        try {
+            //读取mybatis-config.xml文件
+            resourceAsStream = Resources.getResourceAsStream("generatorConfig.xml");
+        } catch (IOException e) {
+                System.out.println(e.getMessage());
+            }
+        //初始化mybatis,创建SqlSessionFactory类的实例
+        return new SqlSessionFactoryBuilder().build(resourceAsStream);
+    }
+
     @Override
     public void syncIssues(Project project, List<IssuesDao> issues) {
         super.isThirdPartTemplate = isThirdPartTemplate();
-
         IssuesService issuesService = CommonBeanFactory.getBean(IssuesService.class);
         if (project.getThirdPartTemplate()) {
             super.defaultCustomFields =  issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
         }
-
         issues.forEach(item -> {
+            SqlSessionFactory sqlSessionFactory = getSqlSessionFactory();
+            //创建session实例
+            SqlSession sqlSession = sqlSessionFactory.openSession();
+            IssuesMapper tempMapper = sqlSession.getMapper(IssuesMapper.class);
             try {
-                IssuesWithBLOBs issuesWithBLOBs = issuesMapper.selectByPrimaryKey(item.getId());
-                getUpdateIssue(item, jiraClientV2.getIssues(item.getPlatformId()));
-                String desc = htmlDesc2MsDesc(item.getDescription());
-                // 保留之前上传的图片
-                String images = getImages(issuesWithBLOBs.getDescription());
-                item.setDescription(desc + "\n" + images);
+                IssuesWithBLOBs issuesWithBLOBs = tempMapper.selectByPrimaryKey(item.getId());
+                // 更新缺陷表
+                JiraIssue latestIssue = jiraClientV2.getIssues(item.getPlatformId());
+                List<IssueAttachment> attachmentList = getAttachments(latestIssue.getFields());
+                getUpdateIssue(item, latestIssue);
 
-                issuesMapper.updateByPrimaryKeySelective(item);
+                if(issuesWithBLOBs instanceof IssuesWithBLOBs) {
+                    System.out.println("issuesWithBLOBs 存在，issue表有对应的jira平台缺陷");
+                    String desc = htmlDesc2MsDesc(item.getDescription());
+                    // 保留之前上传的图片
+                    String images = getImages(issuesWithBLOBs.getDescription());
+                    item.setDescription(desc + "\n" + images);
+                    tempMapper.updateByPrimaryKeySelective(item);
+                }
+                else {
+                    System.out.println("issuesWithBLOBs 是一个空值，issue表无对应的jira平台缺陷");
+                    tempMapper.insert(item);
+                }
+                sqlSession.commit();
             } catch (HttpClientErrorException e) {
                 if (e.getRawStatusCode() == 404) {
                     // 标记成删除
                     item.setPlatformStatus(IssuesStatus.DELETE.toString());
-                    issuesMapper.deleteByPrimaryKey(item.getId());
+                    tempMapper.deleteByPrimaryKey(item.getId());
                 }
             } catch (Exception e) {
                 LogUtil.error(e);
+            } finally {
+                sqlSession.close();
             }
         });
     }

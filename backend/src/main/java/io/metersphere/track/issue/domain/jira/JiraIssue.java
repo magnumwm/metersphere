@@ -11,5 +11,6 @@ public class JiraIssue {
     private String id;
     private String self;
     private String key;
+    private String name;
     private JSONObject fields;
 }

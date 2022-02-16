@@ -75,4 +75,9 @@ public class LocalPlatform extends LocalAbstractPlatform {
     public void updateIssue(IssuesUpdateRequest request) {
         handleIssueUpdate(request);
     }
+
+    @Override
+    public List<IssuesDao> getAllIssuesList(String projectId) {
+        return null;
+    }
 }

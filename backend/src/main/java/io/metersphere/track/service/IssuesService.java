@@ -23,13 +23,12 @@ import io.metersphere.service.CustomFieldTemplateService;
 import io.metersphere.service.IntegrationService;
 import io.metersphere.service.IssueTemplateService;
 import io.metersphere.service.ProjectService;
-import io.metersphere.track.dto.PlanReportIssueDTO;
-import io.metersphere.track.dto.TestCaseReportStatusResultDTO;
-import io.metersphere.track.dto.TestPlanFunctionResultReportDTO;
-import io.metersphere.track.dto.TestPlanSimpleReportDTO;
+import io.metersphere.track.dto.*;
 import io.metersphere.track.issue.*;
 import io.metersphere.track.issue.domain.PlatformUser;
+import io.metersphere.track.issue.domain.jira.JiraIssue;
 import io.metersphere.track.issue.domain.jira.JiraIssueType;
+import io.metersphere.track.issue.domain.zentao.GetIssueResponse;
 import io.metersphere.track.issue.domain.zentao.ZentaoBuild;
 import io.metersphere.track.request.issues.JiraIssueTypeRequest;
 import io.metersphere.track.request.testcase.AuthUserIssueRequest;
@@ -38,8 +37,10 @@ import io.metersphere.track.request.testcase.IssuesUpdateRequest;
 import io.metersphere.track.request.testcase.TestCaseBatchRequest;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
@@ -79,6 +80,8 @@ public class IssuesService {
     private TestPlanTestCaseService testPlanTestCaseService;
     @Resource
     private IssueFollowMapper issueFollowMapper;
+    @Resource
+    private ProjectMapper projectMapper;
 
     public void testAuth(String workspaceId, String platform) {
         IssuesRequest issuesRequest = new IssuesRequest();
@@ -422,8 +425,33 @@ public class IssuesService {
     public void syncThirdPartyIssues(String projectId) {
         if (StringUtils.isNotBlank(projectId)) {
             Project project = projectService.getProjectById(projectId);
-            List<IssuesDao> issues = extIssuesMapper.getIssueForSync(projectId);
+            List<IssuesDao> issuesFromDB = extIssuesMapper.getIssueForSync(projectId);
 
+            IssuesRequest issuesRequest = new IssuesRequest();
+            issuesRequest.setProjectId(projectId);
+            issuesRequest.setWorkspaceId(project.getWorkspaceId());
+            JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
+            List<IssuesDao> issuesFromJira = jiraPlatform.getAllIssuesList(projectId);
+            Map<String, IssuesDao> target = new HashMap<>();
+            if (CollectionUtils.isNotEmpty(issuesFromJira) && CollectionUtils.isNotEmpty(issuesFromDB)){
+                for (IssuesDao tempFromJira: issuesFromJira){
+                    target.put(tempFromJira.getPlatformId(), tempFromJira);
+                }
+                for (IssuesDao tempDBJira: issuesFromDB){
+                    String jiraKey = tempDBJira.getPlatformId();
+                    if (target.containsKey(jiraKey)) {
+                        IssuesDao issueTemp = target.get(jiraKey);
+                        issueTemp.setId(tempDBJira.getId());
+                        issueTemp.setNum(tempDBJira.getNum());
+                    }
+                    else {
+                        target.put(jiraKey, tempDBJira);
+                    }
+                }
+            }
+//            issues.addAll(allJiraIssues);
+
+            List<IssuesDao> issues = new ArrayList<>(target.values());
             if (CollectionUtils.isEmpty(issues)) {
                 return;
             }
@@ -441,9 +469,8 @@ public class IssuesService {
                     .filter(item -> item.getPlatform().equals(IssuesManagePlatform.AzureDevops.name()))
                     .collect(Collectors.toList());
 
-            IssuesRequest issuesRequest = new IssuesRequest();
-            issuesRequest.setProjectId(projectId);
-            issuesRequest.setWorkspaceId(project.getWorkspaceId());
+
+
             if (!projectService.isThirdPartTemplate(projectId)) {
                 String defaultCustomFields = getDefaultCustomFields(projectId);
                 issuesRequest.setDefaultCustomFields(defaultCustomFields);
@@ -454,7 +481,7 @@ public class IssuesService {
                 syncThirdPartyIssues(tapdPlatform::syncIssues, project, tapdIssues);
             }
             if (CollectionUtils.isNotEmpty(jiraIssues)) {
-                JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
+//                JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
                 syncThirdPartyIssues(jiraPlatform::syncIssues, project, jiraIssues);
             }
             if (CollectionUtils.isNotEmpty(zentaoIssues)) {
@@ -649,7 +676,8 @@ public class IssuesService {
     public IssueTemplateDao getThirdPartTemplate(String projectId) {
         if (StringUtils.isNotBlank(projectId)) {
             Project project = projectService.getProjectById(projectId);
-            return IssueFactory.createPlatform(IssuesManagePlatform.Jira.toString(), getDefaultIssueRequest(projectId, project.getWorkspaceId()))
+            IssuesRequest issuesRequest = getDefaultIssueRequest(projectId, project.getWorkspaceId());
+            return IssueFactory.createPlatform(IssuesManagePlatform.Jira.toString(), issuesRequest)
                     .getThirdPartTemplate();
         }
         return new IssueTemplateDao();

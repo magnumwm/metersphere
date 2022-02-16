@@ -224,6 +224,11 @@ public class TapdPlatform extends AbstractIssuePlatform {
         });
     }
 
+    @Override
+    public List<IssuesDao> getAllIssuesList(String projectId) {
+        return null;
+    }
+
     protected IssuesWithBLOBs getUpdateIssue(IssuesWithBLOBs issue, JSONObject bug, Map<String, String> statusMap) {
         if (issue == null) {
             issue = new IssuesWithBLOBs();

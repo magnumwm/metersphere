@@ -13,7 +13,9 @@ import io.metersphere.commons.utils.Pager;
 import io.metersphere.dto.IssueTemplateDao;
 import io.metersphere.log.annotation.MsAuditLog;
 import io.metersphere.notice.annotation.SendNotice;
+import io.metersphere.track.dto.DemandDTO;
 import io.metersphere.track.issue.domain.PlatformUser;
+import io.metersphere.track.issue.domain.jira.JiraIssue;
 import io.metersphere.track.issue.domain.jira.JiraIssueType;
 import io.metersphere.track.issue.domain.zentao.ZentaoBuild;
 import io.metersphere.track.request.issues.JiraIssueTypeRequest;
@@ -160,7 +162,9 @@ public class IssuesController {
 
     @GetMapping("/thirdpart/template/{projectId}")
     public IssueTemplateDao getThirdPartTemplate(@PathVariable String projectId) {
-        return issuesService.getThirdPartTemplate(projectId);
+        IssueTemplateDao IssueTemplate = issuesService.getThirdPartTemplate(projectId);
+//        return issuesService.getThirdPartTemplate(projectId);
+        return IssueTemplate;
     }
 
     @PostMapping("/jira/issuetype")

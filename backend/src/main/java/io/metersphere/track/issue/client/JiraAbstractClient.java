@@ -35,7 +35,9 @@ public abstract class JiraAbstractClient extends BaseClient {
     }
 
     public Map<String, JiraCreateMetadataResponse.Field> getCreateMetadata(String projectKey, String issueType) {
-        String url = getBaseUrl() + "/issue/createmeta?projectKeys={1}&issuetypeNames={2}&expand=projects.issuetypes.fields";
+//        String url = getBaseUrl() + "/issue/createmeta?projectKeys={1}&issuetypeNames={2}&expand=projects.issuetypes.fields";
+        // 获取创建issue模板
+        String url = getBaseUrl() + "/issue/createmeta?projectKeys={1}&issuetypeIds={2}&expand=projects.issuetypes.fields";
         ResponseEntity<String> response = null;
         Map<String, JiraCreateMetadataResponse.Field> fields = null;
         try {
@@ -57,7 +59,8 @@ public abstract class JiraAbstractClient extends BaseClient {
 
     public List<JiraIssueType> getIssueType(String projectKey) {
         JiraIssueProject project = getProject(projectKey);
-        String url = getUrl("/issuetype/project?projectId={0}");
+//        String url = getUrl("/issuetype/project?projectId={0}");
+        String url = getUrl("/issuetype");
         ResponseEntity<String> response = null;
         try {
             response = restTemplate.exchange(url, HttpMethod.GET, getAuthHttpEntity(), String.class, project.getId());
@@ -202,10 +205,12 @@ public abstract class JiraAbstractClient extends BaseClient {
         PASSWD = config.getPassword();
     }
 
-    public JiraIssueListResponse getProjectIssues(int startAt, int maxResults, String projectKey, String issueType) {
+    public JSONArray getProjectIssues(int startAt, int maxResults, String projectKey, String issueType) {
         ResponseEntity<String> responseEntity;
         responseEntity = restTemplate.exchange(getBaseUrl() + "/search?startAt={1}&maxResults={2}&jql=project={3}+AND+issuetype={4}", HttpMethod.GET, getAuthHttpEntity(), String.class,
                 startAt, maxResults, projectKey, issueType);
-        return  (JiraIssueListResponse)getResultForObject(JiraIssueListResponse.class, responseEntity);
+        JSONObject jsonObject = JSONObject.parseObject(responseEntity.getBody());
+        return jsonObject.getJSONArray("issues");
+//        return  (JiraIssueListResponse)getResultForObject(JiraIssueListResponse.class, responseEntity);
     }
 }

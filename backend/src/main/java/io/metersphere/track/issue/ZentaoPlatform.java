@@ -337,6 +337,11 @@ public class ZentaoPlatform extends AbstractIssuePlatform {
         });
     }
 
+    @Override
+    public List<IssuesDao> getAllIssuesList(String projectId) {
+        return null;
+    }
+
     public List<ZentaoBuild> getBuilds() {
         Map<String, String> builds = zentaoClient.getBuilds(getProjectId(projectId));
         List<ZentaoBuild> res = new ArrayList<>();

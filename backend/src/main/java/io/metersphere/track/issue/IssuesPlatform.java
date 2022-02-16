@@ -74,6 +74,12 @@ public interface IssuesPlatform {
     void syncAllIssues(Project project);
 
     /**
+     * 获取项目下所有缺陷（第三方平台）
+     * @return
+     */
+    List<IssuesDao> getAllIssuesList(String projectId);
+
+    /**
      * 获取第三方平台缺陷模板
      * @return
      */
