@@ -11,7 +11,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.web.servlet.ServletComponentScan;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @SpringBootApplication(exclude = {
         QuartzAutoConfiguration.class,
@@ -23,11 +22,10 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         KafkaProperties.class,
         JmeterProperties.class
 })
-@EnableTransactionManagement
 @EnableScheduling
 @PropertySource(value = {
         "classpath:/base.properties",
-        "file:E:/02 code/metersphere/conf/metersphere.properties",
+        "file:/opt/metersphere/conf/metersphere.properties",
 }, encoding = "UTF-8", ignoreResourceNotFound = true)
 public class Application {
     public static void main(String[] args) {

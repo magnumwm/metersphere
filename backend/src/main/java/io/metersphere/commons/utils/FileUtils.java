@@ -22,8 +22,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class FileUtils {
-    public static final String BODY_FILE_DIR = "E:/opt/metersphere/data/body";
-    public static final String MD_IMAGE_DIR = "E:/opt/metersphere/data/image/markdown";
+    public static final String BODY_FILE_DIR = "/opt/metersphere/data/body";
+    public static final String MD_IMAGE_DIR = "/opt/metersphere/data/image/markdown";
 
     public static byte[] listBytesToZip(Map<String, byte[]> mapReport) {
         try {

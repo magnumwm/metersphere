@@ -12,13 +12,12 @@ import io.metersphere.commons.constants.CustomFieldType;
 import io.metersphere.commons.constants.IssuesManagePlatform;
 import io.metersphere.commons.constants.IssuesStatus;
 import io.metersphere.commons.exception.MSException;
-import io.metersphere.commons.utils.BeanUtils;
-import io.metersphere.commons.utils.CommonBeanFactory;
-import io.metersphere.commons.utils.LogUtil;
-import io.metersphere.commons.utils.SessionUtils;
+import io.metersphere.commons.utils.*;
 import io.metersphere.dto.*;
 import io.metersphere.service.CustomFieldService;
+import io.metersphere.service.SystemParameterService;
 import io.metersphere.track.dto.DemandDTO;
+import io.metersphere.track.issue.client.JiraAbstractClient;
 import io.metersphere.track.issue.client.JiraClientV2;
 import io.metersphere.track.issue.domain.PlatformUser;
 import io.metersphere.track.issue.domain.ProjectIssueConfig;
@@ -28,24 +27,25 @@ import io.metersphere.track.request.testcase.IssuesUpdateRequest;
 import io.metersphere.track.service.IssuesService;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
-import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.alibaba.fastjson.JSON.parseArray;
 
 public class JiraPlatform extends AbstractIssuePlatform {
 
@@ -78,11 +78,15 @@ public class JiraPlatform extends AbstractIssuePlatform {
             mergeCustomField(issue, defaultCustomFields);
         }
 
+        JSONObject renderedFields = jiraIssue.getRenderedFields();
         JSONObject fields = jiraIssue.getFields();
         String status = getStatus(fields);
-        String description = fields.getString("description");
-
+        String desc = renderedFields.getString("description");
+        String description = jiraClientV2.jiraHtmlDesc2MsDesc(desc);
+        fields.put("description", description);
+        jiraIssue.setFields(fields);
         Parser parser = Parser.builder().build();
+        // 转成通用html格式
         if (StringUtils.isNotBlank(description)) {
             Node document = parser.parse(description);
             HtmlRenderer renderer = HtmlRenderer.builder().build();
@@ -121,6 +125,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
                 issueAttachment.setFilename(item.getString("filename"));
                 issueAttachment.setContent(item.getString("content"));
                 issueAttachment.setThumbnail(item.getString("thumbnail"));
+                IssueAttachmentList.add(issueAttachment);
             }
         }
         return IssueAttachmentList;
@@ -203,7 +208,13 @@ public class JiraPlatform extends AbstractIssuePlatform {
         JiraAddIssueResponse result = jiraClientV2.addIssue(JSONObject.toJSONString(addJiraIssueParam));
         JiraIssue issues = jiraClientV2.getIssues(result.getId());
 
+        // 上传图片附件
         imageFiles.forEach(img -> jiraClientV2.uploadAttachment(result.getKey(), img));
+
+        // 更新图片附件
+        issuesRequest.setPlatformId(result.getKey());
+        JSONObject param = buildUpdateParam(issuesRequest, getIssueType(project.getIssueConfig()), project.getJiraKey());
+        jiraClientV2.updateIssue(result.getKey(), JSONObject.toJSONString(param));
 
         String status = getStatus(issues.getFields());
         issuesRequest.setPlatformStatus(status);
@@ -300,10 +311,6 @@ public class JiraPlatform extends AbstractIssuePlatform {
         JSONObject project = new JSONObject();
 
         String desc = issuesRequest.getDescription();
-        List<File> imageFiles = getImageFiles(issuesRequest);
-//        String jira_desc = desc.replace()
-//        imageFiles.forEach(img -> );
-        desc = removeImage(desc);
 
         fields.put("project", project);
         project.put("key", jiraKey);
@@ -326,6 +333,59 @@ public class JiraPlatform extends AbstractIssuePlatform {
         setSpecialParam(fields);
 
         return addJiraIssueParam;
+    }
+
+    private String msDescription2Jira(IssuesUpdateRequest issuesRequest, String msDescription) {
+
+        msDescription = msImg2JiraSoftPath(issuesRequest, msDescription);
+        return msDescription;
+//        return msDescription.replaceAll("\\n", "<br/>");
+    }
+
+    public String msImg2JiraSoftPath(IssuesUpdateRequest issuesRequest, String input) {
+        // ![中心主题.png](/resource/md/get/a0b19136_中心主题.png) -> !{jira ENDPOINT}/secure/attachment/xxx.png！
+        // !content!
+        JiraIssue latestIssue = jiraClientV2.getIssues(issuesRequest.getPlatformId());
+        List<IssueAttachment> attachmentList = getAttachments(latestIssue.getFields());
+        String regex = "(\\!\\[.*?\\]\\((.*?)\\))";
+        Pattern pattern = Pattern.compile(regex);
+        if (StringUtils.isBlank(input)) {
+            return "";
+        }
+        Matcher matcher = pattern.matcher(input);
+        String result = input;
+        while (matcher.find()) {
+            String path = matcher.group(2);
+            if (path.startsWith("http")) {
+                String mdLink = "!" + path + "!";
+                result = matcher.replaceFirst(mdLink);
+                matcher = pattern.matcher(result);
+            } else if (path.startsWith("/resource")) {
+                String name = "";
+                String mdLink = "";
+                if (path.contains("/resource/md/get/")) { // 兼容旧数据
+                    name = path.substring(path.indexOf("/resource/md/get/") + 26);
+                }
+                else if (path.contains("/resource/md/get")) { //新数据走这里
+                    name = path.substring(path.indexOf("/resource/md/get") + 26);
+                }
+                for (int i = 0; i < attachmentList.size(); i++) {
+                    IssueAttachment issueAttachment = attachmentList.get(i);
+                    try {
+                        String fileName = URLEncoder.encode(issueAttachment.getFilename(), "UTF-8");
+                        String content = issueAttachment.getContent();
+                        if (fileName.equals(name)) {
+                            mdLink = "!" + content + "!";
+                        }
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
+                }
+                result = matcher.replaceFirst(mdLink);
+                matcher = pattern.matcher(result);
+            }
+        }
+        return result;
     }
 
     private void parseCustomFiled(IssuesUpdateRequest issuesRequest, JSONObject fields) {
@@ -380,7 +440,11 @@ public class JiraPlatform extends AbstractIssuePlatform {
                                 fields.put(fieldName, attr);
                             }
                         } else if (StringUtils.equalsAny(item.getType(),  "richText")) {
-//                            fields.put(fieldName, removeImage(item.getValue().toString()));
+                            if (issuesRequest.getPlatformId() !=null) {
+                                fields.put(fieldName, msDescription2Jira(issuesRequest, item.getValue().toString()));
+                            } else {
+                                fields.put(fieldName,item.getValue().toString());
+                            }
                             if (fieldName.equals("description")) {
                                 issuesRequest.setDescription(item.getValue().toString());
                             }
@@ -428,19 +492,6 @@ public class JiraPlatform extends AbstractIssuePlatform {
         return null;
     }
 
-    private  SqlSessionFactory getSqlSessionFactory(){
-        SqlSessionFactory sqlSessionFactory;
-        InputStream resourceAsStream = null;
-        try {
-            //读取mybatis-config.xml文件
-            resourceAsStream = Resources.getResourceAsStream("generatorConfig.xml");
-        } catch (IOException e) {
-                System.out.println(e.getMessage());
-            }
-        //初始化mybatis,创建SqlSessionFactory类的实例
-        sqlSessionFactory  = new SqlSessionFactoryBuilder().build(resourceAsStream);
-        return sqlSessionFactory;
-    }
 
     @Override
     public void syncIssues(Project project, List<IssuesDao> issues) {
@@ -450,40 +501,28 @@ public class JiraPlatform extends AbstractIssuePlatform {
             super.defaultCustomFields =  issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
         }
         issues.forEach(item -> {
-            SqlSessionFactory sqlSessionFactory = getSqlSessionFactory();
-            //创建session实例
-            SqlSession sqlSession = sqlSessionFactory.openSession();
-            IssuesMapper tempMapper = sqlSession.getMapper(IssuesMapper.class);
             try {
-                IssuesWithBLOBs issuesWithBLOBs = tempMapper.selectByPrimaryKey(item.getId());
+                IssuesWithBLOBs issuesWithBLOBs = issuesMapper.selectByPrimaryKey(item.getId());
                 // 更新缺陷表
                 JiraIssue latestIssue = jiraClientV2.getIssues(item.getPlatformId());
-                List<IssueAttachment> attachmentList = getAttachments(latestIssue.getFields());
                 getUpdateIssue(item, latestIssue);
 
                 if(issuesWithBLOBs instanceof IssuesWithBLOBs) {
                     System.out.println("issuesWithBLOBs 存在，issue表有对应的jira平台缺陷");
-                    String desc = htmlDesc2MsDesc(item.getDescription());
-                    // 保留之前上传的图片
-                    String images = getImages(issuesWithBLOBs.getDescription());
-                    item.setDescription(desc + "\n" + images);
-                    tempMapper.updateByPrimaryKeySelective(item);
+                    issuesMapper.updateByPrimaryKeySelective(item);
                 }
                 else {
                     System.out.println("issuesWithBLOBs 是一个空值，issue表无对应的jira平台缺陷");
-                    tempMapper.insert(item);
+                    issuesMapper.insert(item);
                 }
-                sqlSession.commit();
             } catch (HttpClientErrorException e) {
                 if (e.getRawStatusCode() == 404) {
                     // 标记成删除
                     item.setPlatformStatus(IssuesStatus.DELETE.toString());
-                    tempMapper.deleteByPrimaryKey(item.getId());
+                    issuesMapper.deleteByPrimaryKey(item.getId());
                 }
             } catch (Exception e) {
                 LogUtil.error(e);
-            } finally {
-                sqlSession.close();
             }
         });
     }

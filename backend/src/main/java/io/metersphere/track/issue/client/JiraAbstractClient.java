@@ -3,10 +3,17 @@ package io.metersphere.track.issue.client;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.metersphere.commons.exception.MSException;
+import io.metersphere.commons.utils.CommonBeanFactory;
 import io.metersphere.commons.utils.LogUtil;
+import io.metersphere.dto.IssueAttachment;
 import io.metersphere.i18n.Translator;
+import io.metersphere.service.SystemParameterService;
 import io.metersphere.track.issue.domain.jira.*;
 import org.apache.commons.lang3.StringUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
+import org.jsoup.safety.Whitelist;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -16,6 +23,8 @@ import org.springframework.web.client.HttpClientErrorException;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public abstract class JiraAbstractClient extends BaseClient {
 
@@ -30,7 +39,7 @@ public abstract class JiraAbstractClient extends BaseClient {
     public JiraIssue getIssues(String issuesId) {
         LogUtil.info("getIssues: " + issuesId);
         ResponseEntity<String> responseEntity;
-        responseEntity = restTemplate.exchange(getBaseUrl() + "/issue/" + issuesId, HttpMethod.GET, getAuthHttpEntity(), String.class);
+        responseEntity = restTemplate.exchange(getBaseUrl() + "/issue/" + issuesId + "?expand=renderedFields", HttpMethod.GET, getAuthHttpEntity(), String.class);
         return  (JiraIssue) getResultForObject(JiraIssue.class, responseEntity);
     }
 
@@ -125,7 +134,7 @@ public abstract class JiraAbstractClient extends BaseClient {
     }
 
     public void updateIssue(String id, String body) {
-        LogUtil.info("addIssue: " + body);
+        LogUtil.info("editIssue: " + body);
         HttpHeaders headers = getAuthHeader();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<String> requestEntity = new HttpEntity<>(body, headers);
@@ -163,7 +172,7 @@ public abstract class JiraAbstractClient extends BaseClient {
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
         }
-        System.out.println(response);
+        System.out.println(response.getBody());
     }
 
     public void auth() {
@@ -191,6 +200,62 @@ public abstract class JiraAbstractClient extends BaseClient {
         return getBaseUrl() + path;
     }
 
+    public String jiraHtmlDesc2MsDesc(String htmlDesc) {
+        String desc = jiraHtmlImg2MsImg(htmlDesc);
+        Document document = Jsoup.parse(desc);
+        document.outputSettings(new Document.OutputSettings().prettyPrint(false));
+        document.select("br").append("\\n");
+        document.select("p").prepend("\\n\\n");
+        String desc_tmp = document.html().replaceAll("\\\\n", "\n");
+
+        String desc_clean = Jsoup.clean(desc_tmp, "", Safelist.none(), new Document.OutputSettings().prettyPrint(false));
+        return  desc_clean.replace("&nbsp;", "");
+    }
+
+    protected String jiraHtmlImg2MsImg(String input) {
+        // <img src=\"/secure/attachment/10018/10018_file.jpg\"/> ->  ![10018_file.jpg](${jira_baseUrl}/secure/attachment/10018/10018_file.jpg)
+        // <img src=\"https://mystephen.atlassian.net/rest/api/2/attachment/content/10050\" /> ![10050](${jira_baseUrl}/rest/api/2/attachment/content/10050)
+        String regex = "(<img\\s*src=\\\"(.*?)\\\".*?>)";
+        SystemParameterService parameterService = CommonBeanFactory.getBean(SystemParameterService.class);
+        Pattern pattern = Pattern.compile(regex);
+        if (StringUtils.isBlank(input)) {
+            return "";
+        }
+        Matcher matcher = pattern.matcher(input);
+        String result = input;
+        while (matcher.find()) {
+            String url = matcher.group(2);
+            String name ="";
+            if (url.startsWith(ENDPOINT)) {
+                String[] buff = url.split("/");
+                name = buff[buff.length-1];
+                String mdLink = "![" + name + "](" + url + ")";
+                result = matcher.replaceFirst(mdLink);
+                matcher = pattern.matcher(result);
+            }
+            else if (url.startsWith("/secure/attachment/") || url.startsWith("/rest/api/2/attachment/")) { // jira地址链接不全
+                String path = url.substring(url.indexOf("/secure/attachment/"));
+                String[] buff = path.split("/");
+                name = buff[buff.length-1];
+                String mdLink = "![" + name + "](" + ENDPOINT + path + ")";
+                result = matcher.replaceFirst(mdLink);
+                matcher = pattern.matcher(result);
+            }
+            else {
+                assert parameterService != null;
+                if (url.startsWith(parameterService.getValue("base.url"))) { // 如果是ms本地上传地址，则去掉base.url
+                    String path = url.replaceFirst(parameterService.getValue("base.url"), "");
+                    String[] buff = url.split("/");
+                    name = buff[buff.length-1];
+                    String mdLink = "![" + name + "](" + path + ")";
+                    result = matcher.replaceFirst(mdLink);
+                    matcher = pattern.matcher(result);
+                }
+            }
+        }
+        return result;
+    }
+
     public void setConfig(JiraConfig config) {
         if (config == null) {
             MSException.throwException("config is null");
@@ -207,7 +272,7 @@ public abstract class JiraAbstractClient extends BaseClient {
 
     public JSONArray getProjectIssues(int startAt, int maxResults, String projectKey, String issueType) {
         ResponseEntity<String> responseEntity;
-        responseEntity = restTemplate.exchange(getBaseUrl() + "/search?startAt={1}&maxResults={2}&jql=project={3}+AND+issuetype={4}", HttpMethod.GET, getAuthHttpEntity(), String.class,
+        responseEntity = restTemplate.exchange(getBaseUrl() + "/search?startAt={1}&maxResults={2}&jql=project={3}+AND+issuetype={4}&expand=renderedFields", HttpMethod.GET, getAuthHttpEntity(), String.class,
                 startAt, maxResults, projectKey, issueType);
         JSONObject jsonObject = JSONObject.parseObject(responseEntity.getBody());
         return jsonObject.getJSONArray("issues");

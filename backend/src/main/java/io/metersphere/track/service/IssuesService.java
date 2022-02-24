@@ -449,7 +449,16 @@ public class IssuesService {
                     }
                 }
             }
-//            issues.addAll(allJiraIssues);
+            else if (CollectionUtils.isNotEmpty(issuesFromJira) && CollectionUtils.isEmpty(issuesFromDB)) {
+                for (IssuesDao tempFromJira: issuesFromJira){
+                    target.put(tempFromJira.getPlatformId(), tempFromJira);
+                }
+            }
+            else {
+                for (IssuesDao tempDBJira: issuesFromDB) {
+                    target.put(tempDBJira.getPlatformId(), tempDBJira);
+                }
+            }
 
             List<IssuesDao> issues = new ArrayList<>(target.values());
             if (CollectionUtils.isEmpty(issues)) {
@@ -469,8 +478,6 @@ public class IssuesService {
                     .filter(item -> item.getPlatform().equals(IssuesManagePlatform.AzureDevops.name()))
                     .collect(Collectors.toList());
 
-
-
             if (!projectService.isThirdPartTemplate(projectId)) {
                 String defaultCustomFields = getDefaultCustomFields(projectId);
                 issuesRequest.setDefaultCustomFields(defaultCustomFields);
@@ -481,7 +488,6 @@ public class IssuesService {
                 syncThirdPartyIssues(tapdPlatform::syncIssues, project, tapdIssues);
             }
             if (CollectionUtils.isNotEmpty(jiraIssues)) {
-//                JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
                 syncThirdPartyIssues(jiraPlatform::syncIssues, project, jiraIssues);
             }
             if (CollectionUtils.isNotEmpty(zentaoIssues)) {
