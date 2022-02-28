@@ -21,8 +21,8 @@
         prop="id" v-if="false">
       </ms-table-column>
       <ms-table-column
-        :label="$t('test_track.issue.id')"
-        prop="num">
+        :label="$t('test_track.issue.platformId')"
+        prop="platformId">
       </ms-table-column>
 
       <ms-table-column
@@ -48,10 +48,10 @@
         </template>
       </ms-table-column>
 
-      <ms-table-column
-        :label="$t('test_track.issue.platform')"
-        prop="platform">
-      </ms-table-column>
+<!--      <ms-table-column-->
+<!--        :label="$t('test_track.issue.platform')"-->
+<!--        prop="platform">-->
+<!--      </ms-table-column>-->
 
       <issue-description-table-item/>
 

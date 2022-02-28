@@ -9,7 +9,7 @@
                            :tip="$t('commons.search_by_name_or_id')">
             <template v-slot:button>
               <el-tooltip v-if="isThirdPart" :content="$t('test_track.issue.update_third_party_bugs')">
-                <ms-table-button icon="el-icon-refresh" v-if="true"
+                <ms-table-button icon="el-icon-refresh" v-if="true" :disabled="disAble"
                                  :content="$t('test_track.issue.sync_bugs')" @click="syncIssues"/>
               </el-tooltip>
             </template>
@@ -38,8 +38,8 @@
         <ms-table-column width="1">
         </ms-table-column>
           <ms-table-column
-            :label="$t('test_track.issue.id')"
-            prop="num"
+            :label="$t('test_track.issue.platformId')"
+            prop="platformId"
             :field="item"
             sortable
             min-width="100"
@@ -55,14 +55,14 @@
             prop="title">
           </ms-table-column>
 
-          <ms-table-column
-            :field="item"
-            :fields-width="fieldsWidth"
-            :filters="platformFilters"
-            :label="$t('test_track.issue.platform')"
-            min-width="80"
-            prop="platform">
-          </ms-table-column>
+<!--          <ms-table-column-->
+<!--            :field="item"-->
+<!--            :fields-width="fieldsWidth"-->
+<!--            :filters="platformFilters"-->
+<!--            :label="$t('test_track.issue.platform')"-->
+<!--            min-width="80"-->
+<!--            prop="platform">-->
+<!--          </ms-table-column>-->
 
           <ms-table-column
                   :field="item"
@@ -214,6 +214,7 @@ export default {
         }
       ],
       issueTemplate: {},
+      disAble: false,
       members: [],
       isThirdPart: false,
       creatorFilters: [],
@@ -324,6 +325,7 @@ export default {
       return false;
     },
     syncIssues() {
+      this.disAble = true;
       this.page.result = syncIssues(() => {
         this.getIssues();
       });

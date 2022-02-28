@@ -223,12 +223,12 @@ export let CUSTOM_TABLE_HEADER = {
 
   //缺陷列表
   ISSUE_LIST: [
-    {id: 'num', key: '1', label: 'test_track.issue.id'},
+    {id: 'platformId', key: '1', label: 'test_track.issue.platformId'},
     {id: 'title', key: '2', label: 'test_track.issue.title'},
     {id: 'platformStatus', key: '3', label: 'test_track.issue.status'},
-    {id: 'platform', key: '4', label: 'test_track.issue.platform'},
+    // {id: 'platform', key: '4', label: 'test_track.issue.platform'},
     {id: 'creatorName', key: '5', label: 'custom_field.issue_creator'},
-    {id: 'resourceName', key: '6', label: 'test_track.issue.issue_resource'},
+    // {id: 'resourceName', key: '6', label: 'test_track.issue.issue_resource'},
     {id: 'description', key: '7', label: 'test_track.issue.description'},
     {id: 'caseCount', key: '9', label: 'api_test.definition.api_case_number'},
     {id: 'createTime', key: '8', label: 'commons.create_time'},

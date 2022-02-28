@@ -406,6 +406,8 @@ public abstract class AbstractIssuePlatform implements IssuesPlatform {
                if (value instanceof JSONObject) {
                    JSONObject valObj = ((JSONObject) value);
                    String accountId = valObj.getString("accountId");
+                   String displayName = valObj.getString("displayName");
+//                   String name = valObj.getString("name");
                    JSONObject child = valObj.getJSONObject("child");
                    if (child != null) {// 级联框
                        List<Object> values = new ArrayList<>();
@@ -421,7 +423,11 @@ public abstract class AbstractIssuePlatform implements IssuesPlatform {
                        if (isThirdPartTemplate) {
                            item.setValue(accountId);
                        }
-                    } else {
+                    } else if (StringUtils.isNotBlank(displayName)) {
+                       if (isThirdPartTemplate) {
+                           item.setValue(displayName);
+                       }
+                   } else {
                        item.setValue(valObj.getString("id"));
                     }
                 } else if (value instanceof JSONArray) {

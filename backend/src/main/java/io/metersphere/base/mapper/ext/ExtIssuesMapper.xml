@@ -53,7 +53,7 @@
         group by status;
     </select>
     <select id="getRelateIssues" resultType="io.metersphere.base.domain.IssuesDao">
-        select issues.id, issues.num, issues.title, issues.project_id, issues.create_time, issues.update_time,
+        select issues.id, issues.platform_id, issues.title, issues.project_id, issues.create_time, issues.update_time,
         issues.description, issues.status, issues.platform, issues.custom_fields,test_case_issues.test_case_id,issues.platform_status,
         issues.lastmodify
         from issues
