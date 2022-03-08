@@ -66,7 +66,7 @@
         group by issues.id
     </select>
     <select id="getIssueForSync" resultType="io.metersphere.base.domain.IssuesDao">
-        select id,platform, platform_id
+        select id,platform, platform_id, project_id
         from issues
         where project_id = #{projectId} and platform != 'Local' and (platform_status != 'delete' or platform_status is null);
     </select>

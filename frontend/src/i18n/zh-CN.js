@@ -2302,8 +2302,10 @@ export default {
       zentao_bug_assigned: "禅道 处理人",
       third_party_integrated: "集成第三方平台",
       use_third_party: "使用 Jira 缺陷模板",
-      update_third_party_bugs: "更新第三方平台的缺陷",
+      update_third_party_bugs: "全量更新第三方平台缺陷",
+      update_ms_db_bugs: "仅更新已入库的第三方平台缺陷",
       sync_bugs: "同步缺陷",
+      update_bugs: "更新已有缺陷",
       save_before_open_comment: "请先保存缺陷再添加评论",
     },
     report: {

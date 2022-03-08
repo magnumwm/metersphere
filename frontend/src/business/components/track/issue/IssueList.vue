@@ -12,6 +12,10 @@
                 <ms-table-button icon="el-icon-refresh" v-if="true" id="syncBtn" :disabled="getBtnStatus('syncBtn')"
                                  :content="$t('test_track.issue.sync_bugs')" @click="syncIssues"/>
               </el-tooltip>
+              <el-tooltip v-if="isThirdPart" :content="$t('test_track.issue.update_ms_db_bugs')">
+                <ms-table-button icon="el-icon-refresh"  v-if="true" id="updateBtn" :disabled="getBtnStatus('updateBtn')"
+                               :content="$t('test_track.issue.update_bugs')" @click="updateIssues"/>
+              </el-tooltip>
             </template>
           </ms-table-header>
         </template>
@@ -165,7 +169,7 @@ import {ISSUE_PLATFORM_OPTION, ISSUE_STATUS_MAP, SYSTEM_FIELD_NAME_MAP} from "@/
 import MsTableHeader from "@/business/components/common/components/MsTableHeader";
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import IssueEdit from "@/business/components/track/issue/IssueEdit";
-import {getIssuePartTemplateWithProject, getIssues, syncIssues} from "@/network/Issue";
+import {getIssuePartTemplateWithProject, getIssues, syncIssues, updateIssues} from "@/network/Issue";
 import {
   getCustomFieldValue,
   getCustomTableWidth,
@@ -327,6 +331,13 @@ export default {
         this.getIssues();
       });
     },
+    updateIssues() {
+      this.setBtnStatus('updateBtn', true);
+      this.page.result = updateIssues(() => {
+        this.setBtnStatus('updateBtn', false);
+        this.getIssues();
+      });
+    },
     getBtnStatus(btnId) {
       if(! window.localStorage){
         alert("浏览器不支持localstorage");
@@ -334,6 +345,9 @@ export default {
         try {
           const storage = window.localStorage;
           let btnStatus = storage.getItem(btnId);
+          if (btnStatus === null) {
+            return false;
+          }
           return btnStatus !== 'false';
         }
         catch (e) {

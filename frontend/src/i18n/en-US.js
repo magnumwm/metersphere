@@ -2298,7 +2298,9 @@ export default {
       third_party_integrated: "Third-party Platform Integrated",
       use_third_party: "Enable Jira Issue Template",
       update_third_party_bugs: "Update the defects of third-party platforms",
+      update_ms_db_bugs: "only_update_ms_db_bugs",
       sync_bugs: "Synchronization Issue",
+      update_bugs: "update DB Issue",
       save_before_open_comment: "Please save issue before comment",
     },
     report: {

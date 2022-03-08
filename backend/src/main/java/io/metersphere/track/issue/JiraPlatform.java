@@ -507,11 +507,10 @@ public class JiraPlatform extends AbstractIssuePlatform {
         if (project.getThirdPartTemplate()) {
             super.defaultCustomFields =  issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
         }
-        long start = System.currentTimeMillis();
         List<IssuesWithBLOBs>  issuesWithBLOBsList = new ArrayList<>();
         issues.forEach(item -> {
             try {
-                // 更新缺陷表
+                // 获取缺陷最新信息
                 JiraIssue latestIssue = jiraClientV2.getIssues(item.getPlatformId());
                 getUpdateIssue(item, latestIssue);
                 issuesWithBLOBsList.add(item);
@@ -525,11 +524,8 @@ public class JiraPlatform extends AbstractIssuePlatform {
                 LogUtil.error(e);
             }
         });
+        // 插入或更新缺陷
         issuesMapper.insertOrUpdateBatch(issuesWithBLOBsList);
-        long finish = System.currentTimeMillis();
-        long timeElapsed = finish - start;
-        System.out.println("syncIssues handle: " + issues.size());
-        System.out.println("syncIssues function timeElapsed: "+ timeElapsed);
     }
 
     @Override
