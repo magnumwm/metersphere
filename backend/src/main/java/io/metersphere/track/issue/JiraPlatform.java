@@ -163,6 +163,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         Project project = getProject();
         int maxResults = 50, startAt = 0;
         JSONArray issues;
+        long start = System.currentTimeMillis();
         do {
             issues = jiraClientV2.getProjectIssues(startAt, maxResults, project.getJiraKey(), getIssueType(project.getIssueConfig()));
             for (int i = 0; i < issues.size(); i++) {
@@ -185,6 +186,10 @@ public class JiraPlatform extends AbstractIssuePlatform {
             }
             startAt += maxResults;
         } while (issues.size() >= maxResults);
+        long finish = System.currentTimeMillis();
+        long timeElapsed = finish - start;
+        System.out.println("从jira获取的缺陷条数："+ issues.size());
+        System.out.println("getAllIssuesList function timeElapsed: "+ timeElapsed);
         return jiraList;
     }
 
@@ -502,21 +507,14 @@ public class JiraPlatform extends AbstractIssuePlatform {
         if (project.getThirdPartTemplate()) {
             super.defaultCustomFields =  issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
         }
+        long start = System.currentTimeMillis();
+        List<IssuesWithBLOBs>  issuesWithBLOBsList = new ArrayList<>();
         issues.forEach(item -> {
             try {
-                IssuesWithBLOBs issuesWithBLOBs = issuesMapper.selectByPrimaryKey(item.getId());
                 // 更新缺陷表
                 JiraIssue latestIssue = jiraClientV2.getIssues(item.getPlatformId());
                 getUpdateIssue(item, latestIssue);
-
-                if(issuesWithBLOBs instanceof IssuesWithBLOBs) {
-//                    System.out.println("issuesWithBLOBs 存在，issue表有对应的jira平台缺陷");
-                    issuesMapper.updateByPrimaryKeySelective(item);
-                }
-                else {
-//                    System.out.println("issuesWithBLOBs 是一个空值，issue表无对应的jira平台缺陷");
-                    issuesMapper.insert(item);
-                }
+                issuesWithBLOBsList.add(item);
             } catch (HttpClientErrorException e) {
                 if (e.getRawStatusCode() == 404) {
                     // 标记成删除
@@ -527,6 +525,11 @@ public class JiraPlatform extends AbstractIssuePlatform {
                 LogUtil.error(e);
             }
         });
+        issuesMapper.insertOrUpdateBatch(issuesWithBLOBsList);
+        long finish = System.currentTimeMillis();
+        long timeElapsed = finish - start;
+        System.out.println("syncIssues handle: " + issues.size());
+        System.out.println("syncIssues function timeElapsed: "+ timeElapsed);
     }
 
     @Override

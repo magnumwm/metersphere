@@ -406,6 +406,27 @@
     </set>
     where id = #{id,jdbcType=VARCHAR}
   </update>
+
+  <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List">
+    insert into issues (id, title, `status`,
+    create_time, update_time, reporter,
+    lastmodify, platform, project_id,
+    creator, resource_id, num,
+    platform_status, platform_id, description,
+    custom_fields)
+    values
+    <foreach collection="issues" item="issue" separator=",">
+      (#{issue.id}, #{issue.title}, #{issue.status}, #{issue.createTime}, #{issue.updateTime}, #{issue.reporter},
+      #{issue.lastmodify}, #{issue.platform}, #{issue.projectId}, #{issue.creator}, #{issue.resourceId},
+      #{issue.num}, #{issue.platformStatus}, #{issue.platformId}, #{issue.description}, #{issue.customFields})
+    </foreach>
+    on duplicate key update
+        id = values(id) , title = values(title) , `status` = values(`status`) , create_time = values(create_time),
+        update_time = values(update_time), reporter = values(reporter), lastmodify = values(lastmodify), platform = values(platform),
+        project_id = values(project_id), creator = values(creator), resource_id = values(resource_id), num = values(num),
+        platform_status = values(platform_status), platform_id = values(platform_id), description = values(description), custom_fields = values(custom_fields)
+  </insert>
+
   <update id="updateByPrimaryKeyWithBLOBs" parameterType="io.metersphere.base.domain.IssuesWithBLOBs">
     update issues
     set title = #{title,jdbcType=VARCHAR},

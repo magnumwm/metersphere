@@ -94,6 +94,8 @@
                 and (
                       issues.title LIKE CONCAT('%', #{request.name}, '%')
                       or issues.num LIKE CONCAT('%', #{request.name}, '%')
+                      or issues.platform_id LIKE CONCAT('%', #{request.name}, '%')
+                      or issues.custom_fields LIKE CONCAT('%', #{request.name}, '%')
                     )
             </if>
             <if test="request.workspaceId != null">

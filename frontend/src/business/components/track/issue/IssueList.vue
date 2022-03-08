@@ -9,7 +9,7 @@
                            :tip="$t('commons.search_by_name_or_id')">
             <template v-slot:button>
               <el-tooltip v-if="isThirdPart" :content="$t('test_track.issue.update_third_party_bugs')">
-                <ms-table-button icon="el-icon-refresh" v-if="true" :disabled="disAble"
+                <ms-table-button icon="el-icon-refresh" v-if="true" id="syncBtn" :disabled="getBtnStatus('syncBtn')"
                                  :content="$t('test_track.issue.sync_bugs')" @click="syncIssues"/>
               </el-tooltip>
             </template>
@@ -161,11 +161,7 @@ import MsTableColumn from "@/business/components/common/components/table/MsTable
 import MsTableOperators from "@/business/components/common/components/MsTableOperators";
 import MsTableButton from "@/business/components/common/components/MsTableButton";
 import MsTablePagination from "@/business/components/common/pagination/TablePagination";
-import {
-  ISSUE_PLATFORM_OPTION,
-  ISSUE_STATUS_MAP,
-  SYSTEM_FIELD_NAME_MAP
-} from "@/common/js/table-constants";
+import {ISSUE_PLATFORM_OPTION, ISSUE_STATUS_MAP, SYSTEM_FIELD_NAME_MAP} from "@/common/js/table-constants";
 import MsTableHeader from "@/business/components/common/components/MsTableHeader";
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import IssueEdit from "@/business/components/track/issue/IssueEdit";
@@ -173,7 +169,9 @@ import {getIssuePartTemplateWithProject, getIssues, syncIssues} from "@/network/
 import {
   getCustomFieldValue,
   getCustomTableWidth,
-  getPageInfo, getTableHeaderWithCustomFields, getLastTableSortField
+  getLastTableSortField,
+  getPageInfo,
+  getTableHeaderWithCustomFields
 } from "@/common/js/tableUtils";
 import MsContainer from "@/business/components/common/components/MsContainer";
 import MsMainContainer from "@/business/components/common/components/MsMainContainer";
@@ -214,7 +212,6 @@ export default {
         }
       ],
       issueTemplate: {},
-      disAble: false,
       members: [],
       isThirdPart: false,
       creatorFilters: [],
@@ -297,7 +294,6 @@ export default {
           return {text: u.name, value: u.id};
         });
       });
-
     },
     handleEdit(data) {
       this.$refs.issueEdit.open(data, 'edit');
@@ -325,11 +321,36 @@ export default {
       return false;
     },
     syncIssues() {
-      this.disAble = true;
+      this.setBtnStatus('syncBtn', true);
       this.page.result = syncIssues(() => {
+        this.setBtnStatus('syncBtn', false);
         this.getIssues();
       });
-    }
+    },
+    getBtnStatus(btnId) {
+      if(! window.localStorage){
+        alert("浏览器不支持localstorage");
+      }else {
+        try {
+          const storage = window.localStorage;
+          let btnStatus = storage.getItem(btnId);
+          return btnStatus !== 'false';
+        }
+        catch (e) {
+          console.log(e);
+          return false;
+        }
+      }
+    },
+    setBtnStatus(btnId, value) {
+      console.log("set btn: " + btnId);
+      if(! window.localStorage){
+        alert("浏览器不支持localstorage");
+      }else{
+        const storage = window.localStorage;
+        storage.setItem(btnId, value);
+      }
+    },
   }
 };
 </script>

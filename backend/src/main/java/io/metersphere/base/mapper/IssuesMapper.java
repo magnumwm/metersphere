@@ -31,6 +31,8 @@ public interface IssuesMapper {
 
     int updateByPrimaryKeySelective(IssuesWithBLOBs record);
 
+    int insertOrUpdateBatch(@Param("issues") List<IssuesWithBLOBs> issues);
+
     int updateByPrimaryKeyWithBLOBs(IssuesWithBLOBs record);
 
     int updateByPrimaryKey(Issues record);
