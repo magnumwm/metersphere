@@ -35,7 +35,7 @@ public interface IssuesPlatform {
      * 更新缺陷
      * @param request
      */
-    void updateIssue(IssuesUpdateRequest request);
+    void editIssue(IssuesUpdateRequest request);
 
     /**
      * 删除缺陷平台缺陷
@@ -67,11 +67,13 @@ public interface IssuesPlatform {
      */
     void syncIssues(Project project, List<IssuesDao> tapdIssues);
 
-    /**
-     * 同步缺陷全量的缺陷
-     * @param project
-     */
-    void syncAllIssues(Project project);
+//
+//    /**
+//     * 同步缺陷最新变更
+//     * @param project
+//     * @param issues
+//     */
+//    void updateIssues(Project project, List<IssuesDao> issues);
 
     /**
      * 获取项目下所有缺陷（第三方平台）

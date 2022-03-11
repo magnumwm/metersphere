@@ -407,7 +407,7 @@
     where id = #{id,jdbcType=VARCHAR}
   </update>
 
-  <insert id="insertOrUpdateBatch" keyProperty="id" useGeneratedKeys="true" parameterType="java.util.List">
+  <insert id="insertOrUpdateBatch" keyProperty="platform_id" useGeneratedKeys="true" parameterType="java.util.List">
     insert into issues (id, title, `status`,
     create_time, update_time, reporter,
     lastmodify, platform, project_id,

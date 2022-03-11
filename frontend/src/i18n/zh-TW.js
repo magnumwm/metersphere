@@ -645,6 +645,7 @@ export default {
       jira_url: 'JIRA 地址',
       jira_issuetype: '問題類型',
       jira_storytype: '需求類型',
+      jira_version: 'JIRA Versions',
       input_api_account: '請輸入賬號',
       input_api_password: '請輸入密碼',
       input_jira_url: '請輸入Jira地址，例：https://metersphere.atlassian.net/',

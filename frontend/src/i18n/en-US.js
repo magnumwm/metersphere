@@ -642,6 +642,7 @@ export default {
       jira_url: 'JIRA url',
       jira_issuetype: 'JIRA issue type',
       jira_storytype: 'JIRA story type',
+      jira_version: 'JIRA Versions',
       input_api_account: 'please enter account',
       input_api_password: 'Please enter password',
       input_jira_url: 'Please enter Jira address, for example: https://metersphere.atlassian.net/',

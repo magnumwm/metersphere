@@ -72,7 +72,7 @@ public class LocalPlatform extends LocalAbstractPlatform {
     }
 
     @Override
-    public void updateIssue(IssuesUpdateRequest request) {
+    public void editIssue(IssuesUpdateRequest request) {
         handleIssueUpdate(request);
     }
 

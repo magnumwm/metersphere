@@ -102,15 +102,6 @@ export function syncIssues(success) {
   });
 }
 
-export function updateIssues(success) {
-  let uri = 'issues/update/';
-  return get(uri + getCurrentProjectID(), (response) => {
-    if (success) {
-      success(response);
-    }
-  });
-}
-
 export function deleteIssueRelate(param, callback) {
   return basePost('/issues/delete/relate', param, callback);
 }
@@ -163,4 +154,8 @@ export function isThirdPartEnable(callback) {
 
 export function getJiraIssueType(param, callback) {
   return basePost('/issues/jira/issuetype', param, callback);
+}
+
+export function getJiraVersion(param, callback) {
+  return basePost('/issues/jira/version', param, callback);
 }

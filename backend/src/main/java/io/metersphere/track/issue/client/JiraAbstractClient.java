@@ -104,9 +104,10 @@ public abstract class JiraAbstractClient extends BaseClient {
         return (List<JiraUser>) getResultForList(JiraUser.class, response);
     }
 
-    public JSONArray getDemands(String projectKey, String issueType, int startAt, int maxResults) {
-        String jql = getBaseUrl() + "/search?jql=project=" + projectKey + "+AND+issuetype=" + issueType
-                + "&maxResults=" + maxResults + "&startAt=" + startAt + "&fields=summary,issuetype";
+    // 按jira 修复版本获取story需求
+    public JSONArray getDemands(String projectKey, String issueType, String fixVersion, int startAt, int maxResults) {
+        String jql = getBaseUrl() + "/search?jql=project=" + projectKey + "+AND+issuetype=" + issueType + "+ AND+fixVersion="
+                + fixVersion + "&maxResults=" + maxResults + "&startAt=" + startAt + "&fields=summary,issuetype";
         ResponseEntity<String> responseEntity = restTemplate.exchange(jql,
                 HttpMethod.GET, getAuthHttpEntity(), String.class);
         JSONObject jsonObject = JSONObject.parseObject(responseEntity.getBody());
@@ -270,12 +271,18 @@ public abstract class JiraAbstractClient extends BaseClient {
         PASSWD = config.getPassword();
     }
 
-    public JSONArray getProjectIssues(int startAt, int maxResults, String projectKey, String issueType) {
+    public JSONArray getProjectIssues(int startAt, int maxResults, String projectKey, String issueType, String affectedVersion) {
         ResponseEntity<String> responseEntity;
-        responseEntity = restTemplate.exchange(getBaseUrl() + "/search?startAt={1}&maxResults={2}&jql=project={3}+AND+issuetype={4}&expand=renderedFields", HttpMethod.GET, getAuthHttpEntity(), String.class,
-                startAt, maxResults, projectKey, issueType);
+        responseEntity = restTemplate.exchange(getBaseUrl() + "/search?startAt={1}&maxResults={2}&jql=project={3}+AND+issuetype={4}+AND+affectedVersion={4}&expand=renderedFields",
+                HttpMethod.GET, getAuthHttpEntity(), String.class, startAt, maxResults, projectKey, issueType, affectedVersion);
         JSONObject jsonObject = JSONObject.parseObject(responseEntity.getBody());
         return jsonObject.getJSONArray("issues");
 //        return  (JiraIssueListResponse)getResultForObject(JiraIssueListResponse.class, responseEntity);
+    }
+
+    public List<JiraVersion> getProjectVersions(String projectKey) {
+        ResponseEntity<String> responseEntity;
+        responseEntity = restTemplate.exchange(getBaseUrl() + "/project/" + projectKey + "/versions", HttpMethod.GET, getAuthHttpEntity(), String.class);
+        return (List<JiraVersion>) getResultForList(JiraVersion.class, responseEntity);
     }
 }

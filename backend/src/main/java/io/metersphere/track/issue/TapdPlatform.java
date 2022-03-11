@@ -108,7 +108,7 @@ public class TapdPlatform extends AbstractIssuePlatform {
     }
 
     @Override
-    public void updateIssue(IssuesUpdateRequest request) {
+    public void editIssue(IssuesUpdateRequest request) {
         MultiValueMap<String, Object> param = buildUpdateParam(request);
         param.add("id", request.getPlatformId());
         handleIssueUpdate(request);
@@ -268,5 +268,8 @@ public class TapdPlatform extends AbstractIssuePlatform {
             return userPlatInfo.getTapdUserName();
         }
         return null;
+    }
+
+    public void updateIssues(Project project, List<IssuesDao> issuesDaos) {
     }
 }

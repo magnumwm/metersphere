@@ -210,7 +210,7 @@ public class ZentaoPlatform extends AbstractIssuePlatform {
     }
 
     @Override
-    public void updateIssue(IssuesUpdateRequest request) {
+    public void editIssue(IssuesUpdateRequest request) {
         setUserConfig();
         MultiValueMap<String, Object> param = buildUpdateParam(request);
         handleIssueUpdate(request);
@@ -407,5 +407,8 @@ public class ZentaoPlatform extends AbstractIssuePlatform {
         // todo 图片回显
         String imgRegex = "<img src.*?/>";
         return ztDescription.replaceAll(imgRegex, "");
+    }
+
+    public void updateIssues(Project project, List<IssuesDao> issuesDaos) {
     }
 }

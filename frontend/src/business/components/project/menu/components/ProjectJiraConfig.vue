@@ -20,12 +20,18 @@
         </el-option>
       </el-select>
     </el-form-item>
+    <el-form-item :label-width="labelWidth" :label="$t('organization.integration.jira_version')" prop="version">
+      <el-select filterable v-model="form.issueConfigObj.jiraVersion">
+        <el-option v-for="item in versions" :key="item.id" :label="item.name" :value="item.id">
+        </el-option>
+      </el-select>
+    </el-form-item>
   </div>
 </template>
 
 <script>
 import MsInstructionsIcon from "@/business/components/common/components/MsInstructionsIcon";
-import {getJiraIssueType} from "@/network/Issue";
+import {getJiraIssueType, getJiraVersion} from "@/network/Issue";
 import {getCurrentWorkspaceId} from "@/common/js/utils";
 export default {
   name: "ProjectJiraConfig",
@@ -33,7 +39,8 @@ export default {
   props: ['labelWidth', 'form'],
   data() {
     return {
-      issueTypes: []
+      issueTypes: [],
+      versions: []
     }
   },
   mounted() {
@@ -48,6 +55,15 @@ export default {
         jiraKey: this.form.jiraKey
       }, (data) => {
         this.issueTypes = data;
+      });
+
+      this.versions = [];
+      getJiraVersion({
+        projectId: this.form.id,
+        workspaceId: getCurrentWorkspaceId(),
+        jiraKey: this.form.jiraKey
+      }, (data) => {
+        this.versions = data;
       });
     }
   }

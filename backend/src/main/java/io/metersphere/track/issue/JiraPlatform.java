@@ -111,8 +111,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
     private String getStatus(JSONObject fields) {
         JSONObject statusObj = (JSONObject) fields.get("status");
         if (statusObj != null) {
-            JSONObject statusCategory = (JSONObject) statusObj.get("statusCategory");
-            return statusCategory.getString("name");
+            return statusObj.getString("name");
         }
         return "";
     }
@@ -140,7 +139,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         int maxResults = 50, startAt = 0;
         JSONArray demands;
         do {
-            demands = jiraClientV2.getDemands(project.getJiraKey(), getStoryType(project.getIssueConfig()), startAt, maxResults);
+            demands = jiraClientV2.getDemands(project.getJiraKey(), getStoryType(project.getIssueConfig()), getVersion(project.getIssueConfig()), startAt, maxResults);
             for (int i = 0; i < demands.size(); i++) {
                 JSONObject o = demands.getJSONObject(i);
                 String issueKey = o.getString("key");
@@ -160,36 +159,61 @@ public class JiraPlatform extends AbstractIssuePlatform {
     @Override
     public List<IssuesDao> getAllIssuesList(String projectId) {
         List<IssuesDao> jiraList = new ArrayList<>();
-        Project project = getProject();
+        Project project = projectService.getProjectById(projectId);
+        super.isThirdPartTemplate = isThirdPartTemplate();
+        IssuesService issuesService = CommonBeanFactory.getBean(IssuesService.class);
+        if (project.getThirdPartTemplate()) {
+            super.defaultCustomFields = issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
+            super.defaultCustomFields = issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
+        }
         int maxResults = 50, startAt = 0;
-        JSONArray issues;
-        long start = System.currentTimeMillis();
+        JSONArray issues_arr;
         do {
-            issues = jiraClientV2.getProjectIssues(startAt, maxResults, project.getJiraKey(), getIssueType(project.getIssueConfig()));
-            for (int i = 0; i < issues.size(); i++) {
+            issues_arr = jiraClientV2.getProjectIssues(startAt, maxResults, project.getJiraKey(), getIssueType(project.getIssueConfig()), getVersion(project.getIssueConfig()));
+            for (int i = 0; i < issues_arr.size(); i++) {
                 IssuesDao issuesDao = new IssuesDao();
-                JSONObject issue = issues.getJSONObject(i);
+                JSONObject issue = issues_arr.getJSONObject(i);
                 String issueKey = issue.getString("key");
                 JSONObject fields = issue.getJSONObject("fields");
-                String jira_status = fields.getJSONObject("status").getString("name");
-                String summary = fields.getString("summary");
-                issuesDao.setTitle(summary);
+                issuesDao.setTitle(fields.getString("summary"));
                 issuesDao.setCreateTime(fields.getLong("created"));
                 issuesDao.setUpdateTime(fields.getLong("updated"));
                 issuesDao.setId(UUID.randomUUID().toString());
                 issuesDao.setPlatform(project.getPlatform());
                 issuesDao.setPlatformId(issueKey);
-                issuesDao.setPlatformStatus(jira_status);
                 issuesDao.setProjectId(projectId);
                 issuesDao.setCreator(SessionUtils.getUserId());
+
+                mergeCustomField(issuesDao, defaultCustomFields);
+
+                issuesDao.setPlatformStatus(getStatus(fields));
+                JSONObject renderedFields = issue.getJSONObject("renderedFields");
+                String desc = renderedFields.getString("description");
+                String description = jiraClientV2.jiraHtmlDesc2MsDesc(desc);
+                fields.put("description", description);
+                Parser parser = Parser.builder().build();
+                // 转成通用html格式
+                if (StringUtils.isNotBlank(description)) {
+                    Node document = parser.parse(description);
+                    HtmlRenderer renderer = HtmlRenderer.builder().build();
+                    description = renderer.render(document);
+                }
+
+                JSONObject assignee = (JSONObject) fields.get("assignee");
+                JSONObject reporter = (JSONObject) fields.get("reporter");
+
+
+                issuesDao.setLastmodify(assignee == null ? "" : assignee.getString("displayName"));
+                issuesDao.setReporter(reporter == null ? "" : reporter.getString("displayName"));
+                issuesDao.setDescription(description);
+
+                issuesDao.setNum(getNextNum(issuesDao.getProjectId()));
+                issuesDao.setCustomFields(syncIssueCustomField(issuesDao.getCustomFields(), fields));
                 jiraList.add(issuesDao);
             }
             startAt += maxResults;
-        } while (issues.size() >= maxResults);
-        long finish = System.currentTimeMillis();
-        long timeElapsed = finish - start;
-        System.out.println("从jira获取的缺陷条数："+ issues.size());
-        System.out.println("getAllIssuesList function timeElapsed: "+ timeElapsed);
+        } while (issues_arr.size() >= maxResults);
+
         return jiraList;
     }
 
@@ -202,6 +226,10 @@ public class JiraPlatform extends AbstractIssuePlatform {
 
     public List<JiraIssueType> getIssueTypes(String jiraKey) {
         return jiraClientV2.getIssueType(jiraKey);
+    }
+
+    public List<JiraVersion> getJiraVersions(String jiraKey) {
+        return jiraClientV2.getProjectVersions(jiraKey);
     }
 
     @Override
@@ -466,7 +494,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
     }
 
     @Override
-    public void updateIssue(IssuesUpdateRequest request) {
+    public void editIssue(IssuesUpdateRequest request) {
         setUserConfig();
         Project project = getProject();
         List<File> imageFiles = getImageFiles(request);
@@ -499,20 +527,13 @@ public class JiraPlatform extends AbstractIssuePlatform {
         return null;
     }
 
-
     @Override
-    public void syncIssues(Project project, List<IssuesDao> issues) {
-        super.isThirdPartTemplate = isThirdPartTemplate();
-        IssuesService issuesService = CommonBeanFactory.getBean(IssuesService.class);
-        if (project.getThirdPartTemplate()) {
-            super.defaultCustomFields =  issuesService.getCustomFieldsValuesString(getThirdPartTemplate().getCustomFields());
-        }
+    // 全量同步jira缺陷
+    public void syncIssues(Project project, List<IssuesDao> issuesDaos) {
         List<IssuesWithBLOBs>  issuesWithBLOBsList = new ArrayList<>();
-        issues.forEach(item -> {
+        issuesDaos.forEach(item -> {
             try {
-                // 获取缺陷最新信息
-                JiraIssue latestIssue = jiraClientV2.getIssues(item.getPlatformId());
-                getUpdateIssue(item, latestIssue);
+                // 转换成issuesWithBlobs类型
                 issuesWithBLOBsList.add(item);
             } catch (HttpClientErrorException e) {
                 if (e.getRawStatusCode() == 404) {
@@ -612,6 +633,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         return issueTemplateDao;
     }
 
+    // 获取项目中配置的jira bug类型
     public String getIssueType(String configStr) {
         ProjectIssueConfig projectConfig = super.getProjectConfig(configStr);
         String jiraIssueType = projectConfig.getJiraIssueType();
@@ -621,6 +643,7 @@ public class JiraPlatform extends AbstractIssuePlatform {
         return jiraIssueType;
     }
 
+    // 获取项目中配置的jira 需求类型
     public String getStoryType(String configStr) {
         ProjectIssueConfig projectConfig = super.getProjectConfig(configStr);
         String jiraStoryType = projectConfig.getJiraStoryType();
@@ -628,6 +651,16 @@ public class JiraPlatform extends AbstractIssuePlatform {
             MSException.throwException("请在项目中配置 Jira 需求类型！");
         }
         return jiraStoryType;
+    }
+
+    // 获取项目中配置的jira 版本信息
+    public String getVersion(String configStr) {
+        ProjectIssueConfig projectConfig = super.getProjectConfig(configStr);
+        String jiraVersion = projectConfig.getJiraVersion();
+        if (StringUtils.isBlank(jiraVersion)) {
+            MSException.throwException("请在项目中配置 Jira 版本信息！");
+        }
+        return jiraVersion;
     }
 
     private void setCustomFiledType(JiraCreateMetadataResponse.Schema schema, CustomFieldDao customFieldDao, String userOptions) {

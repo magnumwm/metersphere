@@ -28,6 +28,7 @@ import io.metersphere.track.issue.*;
 import io.metersphere.track.issue.domain.PlatformUser;
 import io.metersphere.track.issue.domain.jira.JiraIssue;
 import io.metersphere.track.issue.domain.jira.JiraIssueType;
+import io.metersphere.track.issue.domain.jira.JiraVersion;
 import io.metersphere.track.issue.domain.zentao.GetIssueResponse;
 import io.metersphere.track.issue.domain.zentao.ZentaoBuild;
 import io.metersphere.track.request.issues.JiraIssueTypeRequest;
@@ -109,7 +110,7 @@ public class IssuesService {
         issuesRequest.getId();
         List<AbstractIssuePlatform> platformList = getUpdatePlatforms(issuesRequest);
         platformList.forEach(platform -> {
-            platform.updateIssue(issuesRequest);
+            platform.editIssue(issuesRequest);
         });
         //saveFollows(issuesRequest.getId(), issuesRequest.getFollows());
         // todo 缺陷更新事件？
@@ -407,17 +408,6 @@ public class IssuesService {
         });
     }
 
-    public void updateDBIssues() {
-        List<String> projectIds = projectService.getProjectIds();
-        projectIds.forEach(id -> {
-            try {
-                updateThirdPartyIssues(id);
-            } catch (Exception e) {
-                LogUtil.error(e.getMessage(), e);
-            }
-        });
-    }
-
     public void issuesCount() {
         LogUtil.info("测试计划-测试用例同步缺陷信息开始");
         int pageSize = 100;
@@ -433,6 +423,7 @@ public class IssuesService {
         LogUtil.info("测试计划-测试用例同步缺陷信息结束");
     }
 
+    // 从第三方平台全量更新
     public void syncThirdPartyIssues(String projectId) {
         if (StringUtils.isNotBlank(projectId)) {
             Project project = projectService.getProjectById(projectId);
@@ -442,6 +433,7 @@ public class IssuesService {
             issuesRequest.setProjectId(projectId);
             issuesRequest.setWorkspaceId(project.getWorkspaceId());
             JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
+
             List<IssuesDao> issuesFromJira = jiraPlatform.getAllIssuesList(projectId);
             Map<String, IssuesDao> target = new HashMap<>();
             if (CollectionUtils.isNotEmpty(issuesFromJira) && CollectionUtils.isNotEmpty(issuesFromDB)){
@@ -518,65 +510,6 @@ public class IssuesService {
             }
         }
     }
-
-
-    public void updateThirdPartyIssues(String projectId) {
-        if (StringUtils.isNotBlank(projectId)) {
-            Project project = projectService.getProjectById(projectId);
-            List<IssuesDao> issuesFromDB = extIssuesMapper.getIssueForSync(projectId);
-
-            IssuesRequest issuesRequest = new IssuesRequest();
-            issuesRequest.setProjectId(projectId);
-            issuesRequest.setWorkspaceId(project.getWorkspaceId());
-            JiraPlatform jiraPlatform = new JiraPlatform(issuesRequest);
-
-            if (CollectionUtils.isEmpty(issuesFromDB)) {
-                return;
-            }
-
-            List<IssuesDao> tapdIssues = issuesFromDB.stream()
-                    .filter(item -> item.getPlatform().equals(IssuesManagePlatform.Tapd.name()))
-                    .collect(Collectors.toList());
-            List<IssuesDao> jiraIssues = issuesFromDB.stream()
-                    .filter(item -> item.getPlatform().equals(IssuesManagePlatform.Jira.name()))
-                    .collect(Collectors.toList());
-            List<IssuesDao> zentaoIssues = issuesFromDB.stream()
-                    .filter(item -> item.getPlatform().equals(IssuesManagePlatform.Zentao.name()))
-                    .collect(Collectors.toList());
-            List<IssuesDao> azureDevopsIssues = issuesFromDB.stream()
-                    .filter(item -> item.getPlatform().equals(IssuesManagePlatform.AzureDevops.name()))
-                    .collect(Collectors.toList());
-
-            if (!projectService.isThirdPartTemplate(projectId)) {
-                String defaultCustomFields = getDefaultCustomFields(projectId);
-                issuesRequest.setDefaultCustomFields(defaultCustomFields);
-            }
-
-            if (CollectionUtils.isNotEmpty(tapdIssues)) {
-                TapdPlatform tapdPlatform = new TapdPlatform(issuesRequest);
-                syncThirdPartyIssues(tapdPlatform::syncIssues, project, tapdIssues);
-            }
-            if (CollectionUtils.isNotEmpty(jiraIssues)) {
-                syncThirdPartyIssues(jiraPlatform::syncIssues, project, jiraIssues);
-            }
-            if (CollectionUtils.isNotEmpty(zentaoIssues)) {
-                ZentaoPlatform zentaoPlatform = new ZentaoPlatform(issuesRequest);
-                syncThirdPartyIssues(zentaoPlatform::syncIssues, project, zentaoIssues);
-            }
-            if (CollectionUtils.isNotEmpty(azureDevopsIssues)) {
-                ClassLoader loader = Thread.currentThread().getContextClassLoader();
-                try {
-                    Class clazz = loader.loadClass("io.metersphere.xpack.issue.azuredevops.AzureDevopsPlatform");
-                    Constructor cons = clazz.getDeclaredConstructor(new Class[]{IssuesRequest.class});
-                    AbstractIssuePlatform azureDevopsPlatform = (AbstractIssuePlatform) cons.newInstance(issuesRequest);
-                    syncThirdPartyIssues(azureDevopsPlatform::syncIssues, project, azureDevopsIssues);
-                } catch (Throwable e) {
-                    LogUtil.error(e);
-                }
-            }
-        }
-    }
-
 
     /**
      * 获取默认的自定义字段的取值，同步之后更新成第三方平台的值
@@ -770,6 +703,16 @@ public class IssuesService {
         JiraPlatform platform = (JiraPlatform) IssueFactory.createPlatform(IssuesManagePlatform.Jira.toString(), issuesRequest);
         if (StringUtils.isNotBlank(request.getJiraKey())) {
             return platform.getIssueTypes(request.getJiraKey());
+        } else {
+            return new ArrayList<>();
+        }
+    }
+
+    public List<JiraVersion> getThirdPartyVersion(JiraIssueTypeRequest request) {
+        IssuesRequest issuesRequest = getDefaultIssueRequest(request.getProjectId(), request.getWorkspaceId());
+        JiraPlatform platform = (JiraPlatform) IssueFactory.createPlatform(IssuesManagePlatform.Jira.toString(), issuesRequest);
+        if (StringUtils.isNotBlank(request.getJiraKey())) {
+            return platform.getJiraVersions(request.getJiraKey());
         } else {
             return new ArrayList<>();
         }

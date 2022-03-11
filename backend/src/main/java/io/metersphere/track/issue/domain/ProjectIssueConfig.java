@@ -9,4 +9,5 @@ public class ProjectIssueConfig {
     private String jiraIssueType;
     private String jiraStoryType;
     private String projectKey;
+    private String jiraVersion;
 }

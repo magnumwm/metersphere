@@ -17,6 +17,7 @@ import io.metersphere.track.dto.DemandDTO;
 import io.metersphere.track.issue.domain.PlatformUser;
 import io.metersphere.track.issue.domain.jira.JiraIssue;
 import io.metersphere.track.issue.domain.jira.JiraIssueType;
+import io.metersphere.track.issue.domain.jira.JiraVersion;
 import io.metersphere.track.issue.domain.zentao.ZentaoBuild;
 import io.metersphere.track.request.issues.JiraIssueTypeRequest;
 import io.metersphere.track.request.testcase.AuthUserIssueRequest;
@@ -140,11 +141,6 @@ public class IssuesController {
         issuesService.syncThirdPartyIssues(projectId);
     }
 
-    @GetMapping("/update/{projectId}")
-    public void updatePlatformIssue(@PathVariable String projectId) {
-        issuesService.updateThirdPartyIssues(projectId);
-    }
-
     @PostMapping("/change/status")
     public void changeStatus(@RequestBody IssuesRequest request) {
         issuesService.changeStatus(request);
@@ -175,5 +171,10 @@ public class IssuesController {
     @PostMapping("/jira/issuetype")
     public List<JiraIssueType> getJiraIssueType(@RequestBody JiraIssueTypeRequest request) {
         return issuesService.getIssueTypes(request);
+    }
+
+    @PostMapping("/jira/version")
+    public List<JiraVersion> getJiraVersion(@RequestBody JiraIssueTypeRequest request) {
+        return issuesService.getThirdPartyVersion(request);
     }
 }

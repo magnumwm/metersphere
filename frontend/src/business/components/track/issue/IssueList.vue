@@ -9,12 +9,8 @@
                            :tip="$t('commons.search_by_name_or_id')">
             <template v-slot:button>
               <el-tooltip v-if="isThirdPart" :content="$t('test_track.issue.update_third_party_bugs')">
-                <ms-table-button icon="el-icon-refresh" v-if="true" id="syncBtn" :disabled="getBtnStatus('syncBtn')"
+                <ms-table-button icon="el-icon-refresh" v-if="true" id="syncBtn"
                                  :content="$t('test_track.issue.sync_bugs')" @click="syncIssues"/>
-              </el-tooltip>
-              <el-tooltip v-if="isThirdPart" :content="$t('test_track.issue.update_ms_db_bugs')">
-                <ms-table-button icon="el-icon-refresh"  v-if="true" id="updateBtn" :disabled="getBtnStatus('updateBtn')"
-                               :content="$t('test_track.issue.update_bugs')" @click="updateIssues"/>
               </el-tooltip>
             </template>
           </ms-table-header>
@@ -169,7 +165,7 @@ import {ISSUE_PLATFORM_OPTION, ISSUE_STATUS_MAP, SYSTEM_FIELD_NAME_MAP} from "@/
 import MsTableHeader from "@/business/components/common/components/MsTableHeader";
 import IssueDescriptionTableItem from "@/business/components/track/issue/IssueDescriptionTableItem";
 import IssueEdit from "@/business/components/track/issue/IssueEdit";
-import {getIssuePartTemplateWithProject, getIssues, syncIssues, updateIssues} from "@/network/Issue";
+import {getIssuePartTemplateWithProject, getIssues, syncIssues} from "@/network/Issue";
 import {
   getCustomFieldValue,
   getCustomTableWidth,
@@ -328,13 +324,6 @@ export default {
       this.setBtnStatus('syncBtn', true);
       this.page.result = syncIssues(() => {
         this.setBtnStatus('syncBtn', false);
-        this.getIssues();
-      });
-    },
-    updateIssues() {
-      this.setBtnStatus('updateBtn', true);
-      this.page.result = updateIssues(() => {
-        this.setBtnStatus('updateBtn', false);
         this.getIssues();
       });
     },
